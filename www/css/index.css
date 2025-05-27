@@ -1,0 +1,145 @@
+html {
+  font-size: 11px;
+}
+
+body {
+  background-color: #f8f9fa;
+}
+
+#seccion-filtroTodo {
+  display: none;
+}
+
+#limpiar-container {
+  display: none;
+  margin-bottom: 100px;
+}
+
+#seccion-filtro {
+  display: none;
+}
+
+#tabla-contenedor {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  overflow-x: hidden;
+}
+
+#resumen-final {
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-top: 2px solid #ccc;
+  margin-top: 2rem;
+}
+
+.table-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+input[type="checkbox"] {
+  transform: scale(1.3);
+  cursor: pointer;
+}
+
+.file-name {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+/* ✅ Clase reutilizable para todas las tablas */
+.tabla-estilizada {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  font-size: 1rem;
+}
+
+.tabla-estilizada thead th {
+  background-color: #198754;
+  color: white;
+  border-bottom: 2px solid #dee2e6;
+  text-align: center;
+  padding: 0.75rem;
+  font-weight: bold;
+}
+
+.tabla-estilizada tbody td {
+  text-align: center;
+  vertical-align: middle;
+  padding: 0.75rem;
+  word-wrap: break-word;
+}
+
+.tabla-estilizada tbody tr {
+  border-bottom: 1px solid #dee2e6;
+}
+
+.tabla-estilizada tbody tr:hover {
+  background-color: #e6ffe6;
+  transition: background-color 0.2s ease-in-out;
+}
+
+/* ✅ Estados de filas */
+.entregado-row {
+  background-color: #d1e7dd !important;
+}
+
+.pendiente-row {
+  background-color: #f8d7da !important;
+}
+
+.table-success td {
+  background-color: #d1e7dd !important;
+}
+
+.table-danger td {
+  background-color: #f8d7da !important;
+}
+
+/* ✅ Títulos */
+.titulo-entregados {
+  color: #198754;
+  font-weight: bold;
+  margin-top: 20px;
+}
+
+.titulo-pendientes {
+  color: #dc3545;
+  font-weight: bold;
+  margin-top: 20px;
+}
+
+/* ✅ Estado de fila entregada con efecto */
+.entregado {
+  background: linear-gradient(135deg, #b2f5b2, #91f0c0) !important;
+  color: #054d2e !important;
+  border: 2px solid #00c853 !important;
+  box-shadow: 0 4px 12px rgba(0, 200, 83, 0.4) !important;
+  border-radius: 8px !important;
+  transform: scale(1.01) !important;
+  transition:
+    background 0.4s ease-in-out,
+    color 0.3s ease-in-out,
+    box-shadow 0.3s ease-in-out,
+    transform 0.2s ease-in-out,
+    border 0.3s ease-in-out !important;
+  animation: pulseGlow 1.5s ease-in-out infinite !important;
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 rgba(0, 200, 83, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(0, 200, 83, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(0, 200, 83, 0.2);
+  }
+}

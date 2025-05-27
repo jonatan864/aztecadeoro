@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Revisión de Traspaso</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/index.css">
+</head>
+<body class="bg-light">
+
+  <div class="container py-4" id="inicio">
+    <h4 class="mb-4 text-center text-success">Cargar Reporte de Traspaso</h4>
+
+    <!-- Sección de Input -->
+    <div id="seccion-input">
+      <div class="mb-3">
+        <input type="file" id="input-excel" class="form-control" />
+        <div id="file-name" class="mt-2 text-secondary small"></div>
+      </div>
+      <div class="d-grid">
+        <button id="btn-cargar" onclick="ocultarInput()" class="btn btn-success">Cargar Datos</button>
+      </div>
+    </div>
+
+    <!-- Sección de Filtro -->
+    <div class="mb-3" id="seccion-filtro">
+      <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre..." />
+    </div>
+
+    <!-- Sección de Filtro -->
+    <div class="mb-3" id="seccion-filtroTodo">
+      <input type="text" id="searchInputTodo" class="form-control" placeholder="Buscar por nombre..." />
+    </div>
+
+    <!-- Tabla -->
+    <div id="tabla-contenedor" class="table-responsive mt-3"></div>
+  </div>
+
+  <div id="resumen-final"></div>
+
+  <!-- En el body de tu HTML, fuera de #tabla-contenedor -->
+  <div id="boton-container" class="text-center mt-3"></div>
+
+  <div class="text-center mt-4" id="limpiar-container">
+    <button id="btn-limpiar" class="btn btn-danger" onclick="ocultarLimpiar()">Cargar archivo nuevo</button>
+  </div>
+  
+
+  <!-- Librerías JS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="js/index.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
