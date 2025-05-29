@@ -258,3 +258,19 @@ function ocultarInput() {
     document.getElementById('seccion-input').style.display = "none";
     document.getElementById('seccion-filtro').style.display = "block";
 }
+
+// Para el filtro normal
+var inputF = document.getElementById("searchInput");
+inputF.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+        this.select();
+    }
+});
+
+// Para el filtro "todo"
+var inputBusquedaTodo = document.getElementById("searchInputTodo");
+inputBusquedaTodo.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+        this.select();
+    }
+});
