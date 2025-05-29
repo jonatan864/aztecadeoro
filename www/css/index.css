@@ -10,6 +10,12 @@ body {
   display: none;
 }
 
+.entregado-checkbox {
+    width: 18px;
+    height: 18px;
+}
+
+
 #limpiar-container {
   display: none;
   margin-bottom: 100px;

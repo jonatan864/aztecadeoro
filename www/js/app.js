@@ -50,23 +50,52 @@ function crearBotonFinalizar() {
         // Crear columna de checkbox para marcar como entregado
         var tdEntregado = document.createElement("td");
         tdEntregado.className = "text-center align-middle";
+
+        // Crear contenedor para checkbox y botón
+        var divControles = document.createElement("div");
+        divControles.className = "d-flex justify-content-center align-items-center gap-2";
+
+        // Crear checkbox
         var checkbox = document.createElement("input");
         checkbox.type = "checkbox";
-        checkbox.className = "entregado-checkbox";
-  
+        checkbox.className = "form-check-input entregado-checkbox m-0";
+
+        // Crear botón de editar
+        var botonEditar = document.createElement("button");
+        botonEditar.className = "btn btn-outline-primary btn-sm p-1 d-flex align-items-center";
+        botonEditar.style.fontSize = "12px";
+        botonEditar.innerHTML = `<i class="bi bi-pencil-square"></i>`;
+
         // Evento para marcar como entregado
-        checkbox.addEventListener("change", function () {
-          const tr = this.closest("tr");
-          if (this.checked) {
-              tr.classList.add("entregado");
-              tr.style.display = "none";
-          } else {
-              tr.classList.remove("entregado");
-              tr.style.display = "";
+    checkbox.addEventListener("change", function () {
+      const tr = this.closest("tr");
+
+      if (this.checked) {
+        tr.classList.add("entregado");
+        tr.style.display = "none";
+
+        // Usar setTimeout para asegurar que el DOM ya refleje los cambios visuales
+        setTimeout(() => {
+          const input1 = document.getElementById("searchInput");
+          const input2 = document.getElementById("searchInputTodo");
+
+          if (input1 && getComputedStyle(input1).display === "block") {
+            input1.focus();
+          } else if (input2 && getComputedStyle(input2).display === "block") {
+            input2.focus();
           }
-        });
-  
-        tdEntregado.appendChild(checkbox);
+        }, 50);
+
+      } else {
+        tr.classList.remove("entregado");
+        tr.style.display = "";
+      }
+    });
+
+        divControles.appendChild(checkbox);
+        divControles.appendChild(botonEditar);
+
+        tdEntregado.appendChild(divControles);
         tr.appendChild(tdEntregado);
         tbody.appendChild(tr);
     });
