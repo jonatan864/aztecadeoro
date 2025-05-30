@@ -1,3 +1,20 @@
+document.getElementById("input-excel").addEventListener("change", function (e) {
+  const file = e.target.files[0];
+
+  if (!file) return;
+
+  if (!file.name.endsWith(".xlsx")) {
+    alert("Solo se permiten archivos de excel");
+    e.target.value = "";
+    return;
+  }
+
+  const nombreArchivo = file.name;
+
+  // Aquí haces tu lectura con FileReader y luego llamas a:
+  // displayData(parsedData, nombreArchivo);
+});
+
 function crearBotonFinalizar() {
   // Verificar si el botón ya existe
   if (!document.getElementById("botonFinalizar")) {
@@ -16,101 +33,115 @@ function crearBotonFinalizar() {
   }
 }
 
-function displayData(data) {
-  // Cargar estado de entregados desde localStorage
-  const entregadosGuardados = JSON.parse(localStorage.getItem("entregados")) || {};
+function displayData(data, nombreArchivo) {
+  if (!data || data.length === 0) {
+    alert("El archivo no contiene datos válidos.");
+    return;
+  }
+  // Guardar el nombre del archivo actual en localStorage (opcional)
+  localStorage.setItem("archivoActual", nombreArchivo);
 
-  // Crear la tabla HTML para mostrar los datos cargados
-  var table = document.createElement("table");
+  // Cargar entregados por archivo
+  const entregadosPorArchivo = JSON.parse(localStorage.getItem("entregadosPorArchivo")) || {};
+  const entregadosGuardados = entregadosPorArchivo[nombreArchivo] || {};
+
+  // Crear la tabla HTML para mostrar los datos
+  const table = document.createElement("table");
   table.className = "tabla-estilizada";
 
-  var header = table.createTHead();
-  var headerRow = header.insertRow();
+  const header = table.createTHead();
+  const headerRow = header.insertRow();
 
-  var keys = Object.keys(data[0]);
+  const keys = Object.keys(data[0]);
   keys.forEach(function(key) {
-      var th = document.createElement("th");
-      th.textContent = key;
-      headerRow.appendChild(th);
+    const th = document.createElement("th");
+    th.textContent = key;
+    headerRow.appendChild(th);
   });
 
-  var thEntregado = document.createElement("th");
+  const thEntregado = document.createElement("th");
   thEntregado.textContent = "ENTREGADO";
   headerRow.appendChild(thEntregado);
 
-  var tbody = table.createTBody();
+  const tbody = table.createTBody();
 
   data.forEach(function(row, index) {
-      var tr = document.createElement("tr");
-      keys.forEach(function(key) {
-          var td = document.createElement("td");
-          td.textContent = row[key];
-          tr.appendChild(td);
-      });
+    const tr = document.createElement("tr");
 
-      var tdEntregado = document.createElement("td");
-      tdEntregado.className = "text-center align-middle";
+    keys.forEach(function(key) {
+      const td = document.createElement("td");
+      td.textContent = row[key];
+      tr.appendChild(td);
+    });
 
-      var divControles = document.createElement("div");
-      divControles.className = "d-flex justify-content-center align-items-center gap-2";
+    const tdEntregado = document.createElement("td");
+    tdEntregado.className = "text-center align-middle";
 
-      var checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.className = "form-check-input entregado-checkbox m-0";
+    const divControles = document.createElement("div");
+    divControles.className = "d-flex justify-content-center align-items-center gap-2";
 
-      // Identificador único para la fila, usar id o índice
-      const idFila = row.id ?? index;
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "form-check-input entregado-checkbox m-0";
 
-      // Si está marcado en localStorage, marcar checkbox y ocultar fila
-      if (entregadosGuardados[idFila]) {
-          checkbox.checked = true;
-          tr.classList.add("entregado");
-          tr.style.display = "none";
-      }
+    // Usar ID, Clave o índice como identificador único
+    const valoresFila = Object.values(row).join("|"); // une todos los campos
+    const idFila = btoa(nombreArchivo + "|" + valoresFila); // codifica todo como ID único
 
-      var botonEditar = document.createElement("button");
-      botonEditar.className = "btn btn-outline-primary btn-sm p-1 d-flex align-items-center";
-      botonEditar.style.fontSize = "12px";
-      botonEditar.innerHTML = `<i class="bi bi-pencil-square"></i>`;
+    if (entregadosGuardados[idFila]) {
+      checkbox.checked = true;
+      tr.classList.add("entregado");
+      tr.style.display = "none";
+    }
 
-      checkbox.addEventListener("change", function () {
-        const tr = this.closest("tr");
-        if (this.checked) {
-          tr.classList.add("entregado");
-          tr.style.display = "none";
+    const botonEditar = document.createElement("button");
+    botonEditar.className = "btn btn-outline-primary btn-sm p-1 d-flex align-items-center";
+    botonEditar.style.fontSize = "12px";
+    botonEditar.innerHTML = `<i class="bi bi-pencil-square"></i>`;
 
-          // Guardar estado en localStorage
-          entregadosGuardados[idFila] = true;
-          localStorage.setItem("entregados", JSON.stringify(entregadosGuardados));
+    const inputEditar = document.createElement("input");
+    inputEditar.style.fontSize = "12px";
 
-          function enfocarInputVisible() {
-            const seccion1 = document.getElementById("seccion-filtro");
-            const seccion2 = document.getElementById("seccion-filtroTodo");
+    checkbox.addEventListener("change", function () {
+      const tr = this.closest("tr");
 
-            if (getComputedStyle(seccion1).display === "block") {
-              document.getElementById("searchInput").focus();
-            } else if (getComputedStyle(seccion2).display === "block") {
-              document.getElementById("searchInputTodo").focus();
-            }
+      const entregadosPorArchivoActual = JSON.parse(localStorage.getItem("entregadosPorArchivo")) || {};
+      entregadosPorArchivoActual[nombreArchivo] = entregadosPorArchivoActual[nombreArchivo] || {};
+
+      if (this.checked) {
+        tr.classList.add("entregado");
+        tr.style.display = "none";
+
+        entregadosPorArchivoActual[nombreArchivo][idFila] = true;
+        localStorage.setItem("entregadosPorArchivo", JSON.stringify(entregadosPorArchivoActual));
+
+        setTimeout(() => {
+          const seccion1 = document.getElementById("seccion-filtro");
+          const seccion2 = document.getElementById("seccion-filtroTodo");
+
+          if (getComputedStyle(seccion1).display === "block") {
+            document.getElementById("searchInput").focus();
+          } else if (getComputedStyle(seccion2).display === "block") {
+            document.getElementById("searchInputTodo").focus();
           }
-          setTimeout(enfocarInputVisible, 50);
+        }, 50);
 
-        } else {
-          tr.classList.remove("entregado");
-          tr.style.display = "";
+      } else {
+        tr.classList.remove("entregado");
+        tr.style.display = "";
 
-          // Eliminar estado de localStorage
-          delete entregadosGuardados[idFila];
-          localStorage.setItem("entregados", JSON.stringify(entregadosGuardados));
-        }
-      });
+        delete entregadosPorArchivoActual[nombreArchivo][idFila];
+        localStorage.setItem("entregadosPorArchivo", JSON.stringify(entregadosPorArchivoActual));
+      }
+    });
 
-      divControles.appendChild(checkbox);
-      divControles.appendChild(botonEditar);
+    divControles.appendChild(inputEditar);
+    divControles.appendChild(checkbox);
+    divControles.appendChild(botonEditar);
 
-      tdEntregado.appendChild(divControles);
-      tr.appendChild(tdEntregado);
-      tbody.appendChild(tr);
+    tdEntregado.appendChild(divControles);
+    tr.appendChild(tdEntregado);
+    tbody.appendChild(tr);
   });
 
   const contenedor = document.getElementById("tabla-contenedor");
@@ -119,6 +150,7 @@ function displayData(data) {
 
   crearBotonFinalizar();
 }
+
 
 document.getElementById("btn-limpiar").addEventListener("click", function () {
   // Limpiar tabla
@@ -144,5 +176,5 @@ document.getElementById("btn-limpiar").addEventListener("click", function () {
   document.getElementById("seccion-input").style.display = "block";
 
   // Limpiar localStorage de entregados
-  localStorage.removeItem("entregados");
+  localStorage.removeItem("entregadosPorArchivo");
 });
