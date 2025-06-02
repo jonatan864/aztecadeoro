@@ -43,6 +43,11 @@ function displayData(data, nombreArchivo) {
 
   const entregadosPorArchivo = JSON.parse(localStorage.getItem("entregadosPorArchivo")) || {};
   const entregadosGuardados = entregadosPorArchivo[nombreArchivo] || {};
+  const datosEditados = JSON.parse(localStorage.getItem("datosEditados")) || {};
+  if (datosEditados[nombreArchivo]) {
+    data = datosEditados[nombreArchivo];
+  }
+
 
   const table = document.createElement("table");
   table.className = "tabla-estilizada";
@@ -75,16 +80,20 @@ function displayData(data, nombreArchivo) {
         const divEditable = document.createElement("div");
         divEditable.className = "d-flex align-items-center gap-2";
 
+        const originalValor = row[key];
+        const [parteEditable, parteFija] = originalValor.split(".", 2); // Ej: "15" y "0000/PZ"
+
         const spanValor = document.createElement("span");
-        spanValor.textContent = row[key];
+        spanValor.textContent = originalValor;
 
         const inputEditar = document.createElement("input");
-        inputEditar.id = "inputEditar";
-        inputEditar.type = "text";
+        inputEditar.type = "number";
         inputEditar.className = "form-control form-control-sm";
         inputEditar.style.display = "none";
         inputEditar.style.fontSize = "12px";
         inputEditar.style.maxWidth = "100px";
+        inputEditar.min = "0";
+
 
         const botonEditar = document.createElement("button");
         botonEditar.className = "btn btn-outline-primary btn-sm p-1 d-flex align-items-center";
@@ -92,18 +101,25 @@ function displayData(data, nombreArchivo) {
         botonEditar.innerHTML = `<i class="bi bi-pencil-square"></i>`;
 
         botonEditar.addEventListener("click", function () {
-          inputEditar.value = row[key];
+          inputEditar.value = parteEditable; // solo la parte editable
           inputEditar.style.display = "inline-block";
           spanValor.style.display = "none";
           inputEditar.focus();
         });
 
-        function guardarCambio() {
-          const nuevoValor = inputEditar.value.trim();
-          if (nuevoValor !== "") {
+       function guardarCambio() {
+          const nuevoEditable = inputEditar.value.trim();
+          if (nuevoEditable !== "") {
+            const nuevoValor = `${nuevoEditable}.${parteFija}`;
             row[key] = nuevoValor;
             spanValor.textContent = nuevoValor;
+
+            // Guardar en localStorage si es necesario
+            const datosEditados = JSON.parse(localStorage.getItem("datosEditados")) || {};
+            datosEditados[nombreArchivo] = data;
+            localStorage.setItem("datosEditados", JSON.stringify(datosEditados));
           }
+
           inputEditar.style.display = "none";
           spanValor.style.display = "inline-block";
         }
@@ -181,6 +197,7 @@ function displayData(data, nombreArchivo) {
   contenedor.innerHTML = "";
   contenedor.appendChild(table);
 
+  document.getElementById("limpiar-container").style.display = "block";
   crearBotonFinalizar();
 }
 
