@@ -184,6 +184,7 @@ function mostrarResumen() {
 // Función para ocultar el contenedor de limpiar
 function ocultarLimpiar() {
     document.getElementById("limpiar-container").style.display = "none";
+    document.getElementById("seccion-filtroTodo").style.display = "none";
 }
 
 // Función para mostrar la tabla original
@@ -208,7 +209,7 @@ function mostrarTablaOriginal() {
 
     // Crear y mostrar botón en esquina superior derecha
     const botonFiltrar = document.createElement("button");
-    botonFiltrar.style.fontSize = "9px";
+    botonFiltrar.style.fontSize = "8px";
     botonFiltrar.innerHTML = `<i class="bi bi-hourglass-split"></i> Ver Pendientes`;
     botonFiltrar.className = "btn btn-secondary position-absolute top-0 end-0 m-3";
     botonFiltrar.addEventListener("click", ocultarMarcados);

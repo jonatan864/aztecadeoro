@@ -38,14 +38,12 @@ function displayData(data, nombreArchivo) {
     alert("El archivo no contiene datos válidos.");
     return;
   }
-  // Guardar el nombre del archivo actual en localStorage (opcional)
+
   localStorage.setItem("archivoActual", nombreArchivo);
 
-  // Cargar entregados por archivo
   const entregadosPorArchivo = JSON.parse(localStorage.getItem("entregadosPorArchivo")) || {};
   const entregadosGuardados = entregadosPorArchivo[nombreArchivo] || {};
 
-  // Crear la tabla HTML para mostrar los datos
   const table = document.createElement("table");
   table.className = "tabla-estilizada";
 
@@ -53,7 +51,7 @@ function displayData(data, nombreArchivo) {
   const headerRow = header.insertRow();
 
   const keys = Object.keys(data[0]);
-  keys.forEach(function(key) {
+  keys.forEach(function (key) {
     const th = document.createElement("th");
     th.textContent = key;
     headerRow.appendChild(th);
@@ -64,43 +62,85 @@ function displayData(data, nombreArchivo) {
   headerRow.appendChild(thEntregado);
 
   const tbody = table.createTBody();
+  const campoEditable = "CANT."; // Campo que se va a editar
 
-  data.forEach(function(row, index) {
+  data.forEach(function (row) {
     const tr = document.createElement("tr");
 
-    keys.forEach(function(key) {
+    keys.forEach(function (key) {
       const td = document.createElement("td");
-      td.textContent = row[key];
+
+      if (key === campoEditable) {
+        // Crear controles de edición en la celda de CANT
+        const divEditable = document.createElement("div");
+        divEditable.className = "d-flex align-items-center gap-2";
+
+        const spanValor = document.createElement("span");
+        spanValor.textContent = row[key];
+
+        const inputEditar = document.createElement("input");
+        inputEditar.id = "inputEditar";
+        inputEditar.type = "text";
+        inputEditar.className = "form-control form-control-sm";
+        inputEditar.style.display = "none";
+        inputEditar.style.fontSize = "12px";
+        inputEditar.style.maxWidth = "100px";
+
+        const botonEditar = document.createElement("button");
+        botonEditar.className = "btn btn-outline-primary btn-sm p-1 d-flex align-items-center";
+        botonEditar.style.fontSize = "12px";
+        botonEditar.innerHTML = `<i class="bi bi-pencil-square"></i>`;
+
+        botonEditar.addEventListener("click", function () {
+          inputEditar.value = row[key];
+          inputEditar.style.display = "inline-block";
+          spanValor.style.display = "none";
+          inputEditar.focus();
+        });
+
+        function guardarCambio() {
+          const nuevoValor = inputEditar.value.trim();
+          if (nuevoValor !== "") {
+            row[key] = nuevoValor;
+            spanValor.textContent = nuevoValor;
+          }
+          inputEditar.style.display = "none";
+          spanValor.style.display = "inline-block";
+        }
+
+        inputEditar.addEventListener("blur", guardarCambio);
+        inputEditar.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            guardarCambio();
+          }
+        });
+
+        divEditable.appendChild(spanValor);
+        divEditable.appendChild(inputEditar);
+        divEditable.appendChild(botonEditar);
+        td.appendChild(divEditable);
+      } else {
+        td.textContent = row[key];
+      }
+
       tr.appendChild(td);
     });
 
     const tdEntregado = document.createElement("td");
     tdEntregado.className = "text-center align-middle";
 
-    const divControles = document.createElement("div");
-    divControles.className = "d-flex justify-content-center align-items-center gap-2";
-
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.className = "form-check-input entregado-checkbox m-0";
 
-    // Usar ID, Clave o índice como identificador único
-    const valoresFila = Object.values(row).join("|"); // une todos los campos
-    const idFila = btoa(nombreArchivo + "|" + valoresFila); // codifica todo como ID único
+    const valoresFila = Object.values(row).join("|");
+    const idFila = btoa(nombreArchivo + "|" + valoresFila);
 
     if (entregadosGuardados[idFila]) {
       checkbox.checked = true;
       tr.classList.add("entregado");
       tr.style.display = "none";
     }
-
-    const botonEditar = document.createElement("button");
-    botonEditar.className = "btn btn-outline-primary btn-sm p-1 d-flex align-items-center";
-    botonEditar.style.fontSize = "12px";
-    botonEditar.innerHTML = `<i class="bi bi-pencil-square"></i>`;
-
-    const inputEditar = document.createElement("input");
-    inputEditar.style.fontSize = "12px";
 
     checkbox.addEventListener("change", function () {
       const tr = this.closest("tr");
@@ -111,35 +151,28 @@ function displayData(data, nombreArchivo) {
       if (this.checked) {
         tr.classList.add("entregado");
         tr.style.display = "none";
-
         entregadosPorArchivoActual[nombreArchivo][idFila] = true;
-        localStorage.setItem("entregadosPorArchivo", JSON.stringify(entregadosPorArchivoActual));
-
-        setTimeout(() => {
-          const seccion1 = document.getElementById("seccion-filtro");
-          const seccion2 = document.getElementById("seccion-filtroTodo");
-
-          if (getComputedStyle(seccion1).display === "block") {
-            document.getElementById("searchInput").focus();
-          } else if (getComputedStyle(seccion2).display === "block") {
-            document.getElementById("searchInputTodo").focus();
-          }
-        }, 50);
-
       } else {
         tr.classList.remove("entregado");
         tr.style.display = "";
-
         delete entregadosPorArchivoActual[nombreArchivo][idFila];
-        localStorage.setItem("entregadosPorArchivo", JSON.stringify(entregadosPorArchivoActual));
       }
+
+      localStorage.setItem("entregadosPorArchivo", JSON.stringify(entregadosPorArchivoActual));
+
+      setTimeout(() => {
+        const seccion1 = document.getElementById("seccion-filtro");
+        const seccion2 = document.getElementById("seccion-filtroTodo");
+
+        if (getComputedStyle(seccion1).display === "block") {
+          document.getElementById("searchInput").focus();
+        } else if (getComputedStyle(seccion2).display === "block") {
+          document.getElementById("searchInputTodo").focus();
+        }
+      }, 50);
     });
 
-    divControles.appendChild(inputEditar);
-    divControles.appendChild(checkbox);
-    divControles.appendChild(botonEditar);
-
-    tdEntregado.appendChild(divControles);
+    tdEntregado.appendChild(checkbox);
     tr.appendChild(tdEntregado);
     tbody.appendChild(tr);
   });
@@ -150,6 +183,7 @@ function displayData(data, nombreArchivo) {
 
   crearBotonFinalizar();
 }
+
 
 
 document.getElementById("btn-limpiar").addEventListener("click", function () {
