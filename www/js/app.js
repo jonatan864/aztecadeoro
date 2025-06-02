@@ -107,6 +107,10 @@ function displayData(data, nombreArchivo) {
           inputEditar.focus();
         });
 
+        inputEditar.addEventListener("focus", function() {
+          this.select()
+        });
+
        function guardarCambio() {
           const nuevoEditable = inputEditar.value.trim();
           if (nuevoEditable !== "") {
