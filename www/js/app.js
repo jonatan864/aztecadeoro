@@ -205,8 +205,6 @@ function displayData(data, nombreArchivo) {
   crearBotonFinalizar();
 }
 
-
-
 document.getElementById("btn-limpiar").addEventListener("click", function () {
   // Limpiar tabla
   document.getElementById("tabla-contenedor").innerHTML = "";
@@ -231,5 +229,5 @@ document.getElementById("btn-limpiar").addEventListener("click", function () {
   document.getElementById("seccion-input").style.display = "block";
 
   // Limpiar localStorage de entregados
-  localStorage.removeItem("entregadosPorArchivo");
+  localStorage.clear();
 });
