@@ -15,6 +15,27 @@ document.getElementById("input-excel").addEventListener("change", function (e) {
   // displayData(parsedData, nombreArchivo);
 });
 
+/*document.getElementById("input-pdf").addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (!file.name.endsWith(".pdf")) {
+    alert("Solo se permiten archivos PDF");
+    e.target.value = "";
+    return;
+  }
+
+  const nombreArchivo = file.name;
+
+  const reader = new FileReader();
+  reader.onload = function () {
+    const typedarray = new Uint8Array(reader.result);
+    leerPDF(typedarray, file.name);
+  };
+  reader.readAsArrayBuffer(file);
+});*/
+
+
 function crearBotonFinalizar() {
   // Verificar si el botón ya existe
   if (!document.getElementById("botonFinalizar")) {
@@ -34,10 +55,15 @@ function crearBotonFinalizar() {
 }
 
 function displayData(data, nombreArchivo) {
-  if (!data || data.length === 0) {
+  /*if (!data || data.length === 0) {
     alert("El archivo no contiene datos válidos.");
     return;
-  }
+  }*/
+ if (!Array.isArray(data) || data.length === 0 || typeof data[0] !== "object") {
+  alert("El archivo no contiene datos válidos.");
+  return;
+}
+
 
   localStorage.setItem("archivoActual", nombreArchivo);
 
@@ -154,7 +180,7 @@ function displayData(data, nombreArchivo) {
     checkbox.className = "form-check-input entregado-checkbox m-0";
 
     const valoresFila = Object.values(row).join("|");
-    const idFila = btoa(nombreArchivo + "|" + valoresFila);
+    const idFila = btoa(encodeURIComponent(nombreArchivo + "|" + valoresFila));
 
     if (entregadosGuardados[idFila]) {
       checkbox.checked = true;
@@ -203,6 +229,46 @@ function displayData(data, nombreArchivo) {
 
   document.getElementById("limpiar-container").style.display = "block";
   crearBotonFinalizar();
+}
+
+
+async function leerPDF(arrayBuffer, nombreArchivo) {
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let textoCompleto = "";
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const strings = content.items.map(item => item.str);
+    textoCompleto += strings.join(" ") + "\n";
+  }
+
+  const productos = extraerProductosDesdeTexto(textoCompleto);
+  displayData(productos, nombreArchivo); // Usa tu misma función para mostrar
+  console.log("Texto extraído del PDF:", textoCompleto);
+}
+
+function extraerProductosDesdeTexto(texto) {
+  const productos = [];
+
+  // Regla: busca bloques con patrón: clave (número largo) + descripción + cantidad + precio + importe
+  const regex = /(\d{5,})\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
+
+  let match;
+  while ((match = regex.exec(texto)) !== null) {
+    const [, clave, descripcion, cantidad, precioNeto, importe] = match;
+
+    productos.push({
+      "CLAVE": clave,
+      "DESCRIPCIÓN": descripcion,
+      "CANT.": cantidad,
+      //"P. NETO": precioNeto,
+      //"IMPORTE": importe
+    });
+  }
+
+  console.log("Productos extraídos:", productos);
+  return productos;
 }
 
 document.getElementById("btn-limpiar").addEventListener("click", function () {

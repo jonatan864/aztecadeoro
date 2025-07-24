@@ -56,35 +56,57 @@ inputBusquedaT.addEventListener("focus", function() {
     this.select(); // Esto selecciona todo el texto automáticamente
 });
 
+document.getElementById("tipo-archivo").addEventListener("change", function () {
+  const tipo = this.value;
+  document.getElementById("excel").style.display = (tipo === "excel") ? "block" : "none";
+  document.getElementById("pdf").style.display = (tipo === "pdf") ? "block" : "none";
+  document.getElementById("btn-cargar").style.display = "block";
+});
 
 // Evento para el botón de cargar datos
 document.getElementById("btn-cargar").addEventListener("click", function () {
-    var archivo = document.getElementById("input-excel").files[0];
+  const tipoArchivo = document.getElementById("tipo-archivo").value;
+  
+  if (!tipoArchivo) {
+    alert("Por favor, selecciona el tipo de archivo.");
+    return;
+  }
 
-    // Verificar si no se ha seleccionado archivo
+  if (tipoArchivo === "excel") {
+    const archivo = document.getElementById("input-excel").files[0];
     if (!archivo) {
-        alert("Por favor, carga un archivo primero.");
-        
-        // Mostrar la vista del input y ocultar otras secciones
-        document.getElementById("seccion-input").style.display = "block"; // Muestra el input
-        document.getElementById("seccion-filtro").style.display = "none"; // Oculta el filtro
-        document.getElementById("boton-container").innerHTML = ""; // Oculta el botón de 'Ver Todo' si es necesario
-        document.getElementById("tabla-contenedor").innerHTML = ""; // Limpiar cualquier tabla mostrada
-        
-        return; // Detiene la ejecución si no hay archivo
+      alert("Por favor, selecciona un archivo Excel.");
+      return;
     }
 
     const reader = new FileReader();
-    reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(sheet);
-        displayData(json); // Llama a la función para mostrar la tabla
+    reader.onload = function (e) {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(sheet);
+      displayData(json, archivo.name); // Pasa el nombre del archivo también
     };
     reader.readAsArrayBuffer(archivo);
+  }
+
+  if (tipoArchivo === "pdf") {
+    const archivoPDF = document.getElementById("input-pdf").files[0];
+    if (!archivoPDF) {
+      alert("Por favor, selecciona un archivo PDF.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function () {
+      const typedarray = new Uint8Array(reader.result);
+      leerPDF(typedarray, archivoPDF.name);
+    };
+    reader.readAsArrayBuffer(archivoPDF);
+  }
 });
+
 
 // Función para mostrar el resumen
 function mostrarResumen() {

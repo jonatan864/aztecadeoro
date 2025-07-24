@@ -16,11 +16,27 @@
     <!-- Sección de Input -->
     <div id="seccion-input">
       <div class="mb-3">
-        <input type="file" id="input-excel" class="form-control" />
-        <div id="file-name" class="mt-2 text-secondary small"></div>
+        <label for="tipo-archivo">Selecciona tipo de archivo:</label>
+        <select id="tipo-archivo" class="form-select mb-3">
+          <option value="">-- Seleccionar --</option>
+          <option value="excel">Excel</option>
+          <option value="pdf">PDF</option>
+        </select>
+
+        <div id="pdf" style="display: none;">
+          <label for="input-pdf">Cargar PDF de Traspaso:</label>
+          <input type="file" id="input-pdf" class="form-control" accept=".pdf" />
+          <div id="file-name" class="mt-2 text-secondary small"></div>
+        </div>
+
+        <div id="excel" style="display: none;">
+          <label for="input-excel">Cargar EXCEL de Traspaso:</label>
+          <input type="file" id="input-excel" class="form-control" accept=".xlsx" />
+          <div id="file-name" class="mt-2 text-secondary small"></div>
+        </div>
       </div>
       <div class="d-grid">
-        <button id="btn-cargar" onclick="ocultarInput()" class="btn btn-success">Cargar Datos</button>
+        <button id="btn-cargar" onclick="ocultarInput()" class="btn btn-success" style="display: none;">Cargar Datos</button>
       </div>
     </div>
 
@@ -49,6 +65,10 @@
   
 
   <!-- Librerías JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js">
+      const pdfjsLib = window['pdfjs-dist/build/pdf']; // si lo necesitas
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="js/index.js"></script>
   <script src="js/app.js"></script>
