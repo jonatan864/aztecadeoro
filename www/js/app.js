@@ -243,33 +243,62 @@ async function leerPDF(arrayBuffer, nombreArchivo) {
     textoCompleto += strings.join(" ") + "\n";
   }
 
-  const productos = extraerProductosDesdeTexto(textoCompleto);
-  displayData(productos, nombreArchivo); // Usa tu misma función para mostrar
-  console.log("Texto extraído del PDF:", textoCompleto);
+  if (
+    !textoCompleto.includes("CLAVE") ||
+    !textoCompleto.includes("DESCRIPCIÓN") ||
+    !textoCompleto.includes("CANT.")
+  ) {
+    alert("⚠️ El archivo no tiene el formato esperado. Asegúrate de cargar un archivo válido.");
+  // 🔄 Limpiar el input de PDF para volver a seleccionar
+    document.getElementById("input-pdf").value = "";
+
+    // 🧹 Limpiar el contenedor de la tabla
+    document.getElementById("tabla-contenedor").innerHTML = "";
+
+    // 🔄 Mostrar nuevamente la sección de input si la ocultaste
+    document.getElementById("inicio").style.display = "block";    
+    return;
+  } else {
+    const productos = extraerProductosDesdeTexto(textoCompleto);
+    displayData(productos, nombreArchivo); // Usa tu misma función para mostrar
+    console.log("Texto extraído del PDF:", textoCompleto);
+  }
 }
 
 function extraerProductosDesdeTexto(texto) {
   const productos = [];
 
-  // Regla: busca bloques con patrón: clave (número largo) + descripción + cantidad + precio + importe
-  const regex = /(\d{5,})\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
+  // Buscar la posición de la palabra "Importe"
+  const indiceImporte = texto.indexOf("IMPORTE");
+
+  if (indiceImporte === -1) {
+    console.warn("No se encontró la palabra 'Importe' en el texto.");
+    return productos;
+  }
+
+  // Cortar el texto desde "Importe" en adelante
+  const textoDesdeImporte = texto.slice(indiceImporte + "IMPORTE".length);
+
+  // Regla: clave (palabra/número), descripción (texto), cantidad (con /unidad), precio, importe
+  const regex = /(\w+)\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
 
   let match;
-  while ((match = regex.exec(texto)) !== null) {
+  while ((match = regex.exec(textoDesdeImporte)) !== null) {
     const [, clave, descripcion, cantidad, precioNeto, importe] = match;
 
     productos.push({
       "CLAVE": clave,
       "DESCRIPCIÓN": descripcion,
-      "CANT.": cantidad,
-      //"P. NETO": precioNeto,
-      //"IMPORTE": importe
+      "CANT.": cantidad
+      // "P. NETO": precioNeto,
+      // "IMPORTE": importe
     });
   }
 
   console.log("Productos extraídos:", productos);
   return productos;
 }
+
 
 document.getElementById("btn-limpiar").addEventListener("click", function () {
   // Limpiar tabla
