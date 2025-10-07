@@ -1,3 +1,24 @@
+//Permisos 
+document.addEventListener('deviceready', function () {
+    var permissions = cordova.plugins.permissions;
+    var list = [
+        permissions.READ_EXTERNAL_STORAGE,
+        permissions.WRITE_EXTERNAL_STORAGE
+    ];
+
+    permissions.checkPermission(list, function (status) {
+        if (!status.hasPermission) {
+            permissions.requestPermissions(list, function (status) {
+                if (!status.hasPermission) {
+                    alert("Sin permisos no se puede guardar el archivo 😢");
+                }
+            }, function () {
+                alert("Error al pedir permisos");
+            });
+        }
+    }, null);
+}, false);
+
 document.getElementById("input-excel").addEventListener("change", function (e) {
   const file = e.target.files[0];
 
@@ -14,27 +35,6 @@ document.getElementById("input-excel").addEventListener("change", function (e) {
   // Aquí haces tu lectura con FileReader y luego llamas a:
   // displayData(parsedData, nombreArchivo);
 });
-
-/*document.getElementById("input-pdf").addEventListener("change", function (e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  if (!file.name.endsWith(".pdf")) {
-    alert("Solo se permiten archivos PDF");
-    e.target.value = "";
-    return;
-  }
-
-  const nombreArchivo = file.name;
-
-  const reader = new FileReader();
-  reader.onload = function () {
-    const typedarray = new Uint8Array(reader.result);
-    leerPDF(typedarray, file.name);
-  };
-  reader.readAsArrayBuffer(file);
-});*/
-
 
 function crearBotonFinalizar() {
   // Verificar si el botón ya existe
@@ -55,12 +55,9 @@ function crearBotonFinalizar() {
 }
 
 function displayData(data, nombreArchivo) {
-  /*if (!data || data.length === 0) {
-    alert("El archivo no contiene datos válidos.");
-    return;
-  }*/
  if (!Array.isArray(data) || data.length === 0 || typeof data[0] !== "object") {
   alert("El archivo no contiene datos válidos.");
+  resetApp()
   return;
 }
 
@@ -94,6 +91,7 @@ function displayData(data, nombreArchivo) {
 
   const tbody = table.createTBody();
   const campoEditable = "CANT."; // Campo que se va a editar
+  const campoEditableNuevo = "CANT"; // Campo que se va a editar
 
   data.forEach(function (row) {
     const tr = document.createElement("tr");
@@ -101,7 +99,7 @@ function displayData(data, nombreArchivo) {
     keys.forEach(function (key) {
       const td = document.createElement("td");
 
-      if (key === campoEditable) {
+      if (key === campoEditable || key === campoEditableNuevo) {
         // Crear controles de edición en la celda de CANT
         const divEditable = document.createElement("div");
         divEditable.className = "d-flex align-items-center gap-2";
@@ -243,61 +241,96 @@ async function leerPDF(arrayBuffer, nombreArchivo) {
     textoCompleto += strings.join(" ") + "\n";
   }
 
-  if (
-    !textoCompleto.includes("CLAVE") ||
-    !textoCompleto.includes("DESCRIPCIÓN") ||
-    !textoCompleto.includes("CANT.")
-  ) {
+  // 🔧 Normalizar espacios
+  textoCompleto = textoCompleto.replace(/\s+/g, " ").trim();
+
+  // Validaciones de formato
+  const esFormatoViejo = textoCompleto.includes("CLAVE") && textoCompleto.includes("DESCRIPCIÓN") && textoCompleto.includes("CANT.");
+  const esFormatoNuevo = textoCompleto.includes("CANT UNI") && textoCompleto.includes("FACTOR") && textoCompleto.includes("DESCRIPCIÓN");
+
+  if (!esFormatoViejo && !esFormatoNuevo) {
     alert("⚠️ El archivo no tiene el formato esperado. Asegúrate de cargar un archivo válido.");
-  // 🔄 Limpiar el input de PDF para volver a seleccionar
-    document.getElementById("input-pdf").value = "";
-
-    // 🧹 Limpiar el contenedor de la tabla
-    document.getElementById("tabla-contenedor").innerHTML = "";
-
-    // 🔄 Mostrar nuevamente la sección de input si la ocultaste
-    document.getElementById("inicio").style.display = "block";    
+    resetApp();
     return;
-  } else {
-    const productos = extraerProductosDesdeTexto(textoCompleto);
-    displayData(productos, nombreArchivo); // Usa tu misma función para mostrar
-    console.log("Texto extraído del PDF:", textoCompleto);
   }
+
+  const productos = extraerProductosDesdeTexto(textoCompleto);
+  displayData(productos, nombreArchivo);
+  console.log("Texto extraído del PDF:", textoCompleto);
+}
+
+
+function resetApp() {
+  document.getElementById("tabla-contenedor").innerHTML = "";
+  document.getElementById("resumen-final").innerHTML = "";
+  document.getElementById("input-excel").value = "";
+  document.getElementById("input-pdf").value = "";
+  document.getElementById("file-name").textContent = "";
+  document.getElementById("searchInput").value = "";
+  document.getElementById("seccion-filtro").style.display = "none";
+  document.getElementById("boton-container").innerHTML = "";
+  document.getElementById("seccion-input").style.display = "block";
+  localStorage.clear();
 }
 
 function extraerProductosDesdeTexto(texto) {
   const productos = [];
 
-  // Buscar la posición de la palabra "Importe"
-  const indiceImporte = texto.indexOf("IMPORTE");
+  // Buscar dónde empieza la tabla (puede ser CANT UNI o CLAVE)
+  let indiceTabla = texto.indexOf("CANT UNI");
+  if (indiceTabla === -1) {
+    indiceTabla = texto.indexOf("CLAVE");
+  }
 
-  if (indiceImporte === -1) {
-    console.warn("No se encontró la palabra 'Importe' en el texto.");
+  if (indiceTabla === -1) {
+    console.warn("No se encontró inicio de tabla en el PDF.");
     return productos;
   }
 
-  // Cortar el texto desde "Importe" en adelante
-  const textoDesdeImporte = texto.slice(indiceImporte + "IMPORTE".length);
+  const textoTabla = texto.slice(indiceTabla);
 
-  // Regla: clave (palabra/número), descripción (texto), cantidad (con /unidad), precio, importe
-  const regex = /(\w+)\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
+  console.log("Texto tabla procesado:", textoTabla);
+
+  // Regex para el nuevo formato (CANT UNI, FACTOR, DESCRIPCIÓN, P. UNIT., IMPORTE)
+  const regexNuevo = /(\d+\.\d+)\s+([A-Z]+)\s+(\d+\.\d+)\s+(.+?)\s+\$\s*([\d,]+\.\d{2,3})\s+\$\s*([\d,]+\.\d{2})/g;
 
   let match;
-  while ((match = regex.exec(textoDesdeImporte)) !== null) {
-    const [, clave, descripcion, cantidad, precioNeto, importe] = match;
+  while ((match = regexNuevo.exec(textoTabla)) !== null) {
+    console.log("Match encontrado:", match);
+
+    const [, cantidad, unidad, factor, descripcion, pUnit, importe] = match;
 
     productos.push({
-      "CLAVE": clave,
-      "DESCRIPCIÓN": descripcion,
-      "CANT.": cantidad
-      // "P. NETO": precioNeto,
-      // "IMPORTE": importe
+      "CANT": cantidad,
+      "UNI FACTOR": `${unidad} ${factor}`,
+      "DESCRIPCIÓN": descripcion.trim(),
+      "P. UNIT.": `$${pUnit}`,
+      "IMPORTE": `$${importe}`
     });
+  }
+
+  // Regex para el formato viejo (CLAVE, DESCRIPCIÓN, CANT., P. NETO, IMPORTE)
+  if (productos.length === 0) {
+    const regexViejo = /(\w+)\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
+    while ((match = regexViejo.exec(textoTabla)) !== null) {
+      console.log("Match (formato viejo) encontrado:", match);
+
+      const [, clave, descripcion, cantidad, precioNeto, importe] = match;
+      productos.push({
+        "CLAVE": clave,
+        "DESCRIPCIÓN": descripcion.trim(),
+        "CANT.": cantidad,
+        "P. NETO": precioNeto,
+        "IMPORTE": importe
+      });
+    }
   }
 
   console.log("Productos extraídos:", productos);
   return productos;
 }
+
+
 
 
 document.getElementById("btn-limpiar").addEventListener("click", function () {

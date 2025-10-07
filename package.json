@@ -13,10 +13,13 @@
   "author": "Apache Cordova Team",
   "license": "Apache-2.0",
   "devDependencies": {
-    "cordova-android": "^14.0.1",
+    "cordova-android": "^11.0.0",
+    "cordova-plugin-android-permissions": "^1.1.5",
     "cordova-plugin-file": "^8.1.3",
+    "cordova-plugin-file-opener2": "^4.0.0",
     "cordova-plugin-filechooser": "^1.2.0",
     "cordova-plugin-filepath": "^1.6.0",
+    "cordova-plugin-filepicker": "^1.1.6",
     "cordova-plugin-splashscreen": "^6.0.1"
   },
   "cordova": {
@@ -27,7 +30,10 @@
       "cordova-plugin-file": {},
       "cordova-plugin-filechooser": {},
       "cordova-plugin-filepath": {},
-      "cordova-plugin-splashscreen": {}
+      "cordova-plugin-splashscreen": {},
+      "cordova-plugin-android-permissions": {},
+      "cordova-plugin-file-opener2": {},
+      "cordova-plugin-filepicker": {}
     }
   },
   "dependencies": {
