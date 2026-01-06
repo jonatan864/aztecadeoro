@@ -134,6 +134,9 @@ function mostrarResumen() {
         }
     });
 
+    const titulosResumen = ["CLAVE", "DESCRIPCIÓN", "CANT"];
+
+
     const crearTabla = (datos, titulo, claseTitulo, claseFila) => {
         const contenedor = document.createElement("div");
         contenedor.className = "mb-4";
@@ -147,11 +150,9 @@ function mostrarResumen() {
         table.className = "tabla-estilizada";
         const thead = document.createElement("thead");
         thead.style.fontSize = '1rem'
-        thead.innerHTML = `
+       thead.innerHTML = `
             <tr class="table-secondary">
-                <th>CANT</th>
-                <th>UNI FACTOR</th>
-                <th>DESCRIPCION</th>  
+                ${titulosResumen.map(t => `<th>${t}</th>`).join("")}
             </tr>
         `;
         table.appendChild(thead);
@@ -175,85 +176,48 @@ function mostrarResumen() {
         contenedor.appendChild(table);
 
 // 👇 Botón de exportar
-const botonExportar = document.createElement("button");
-botonExportar.textContent = `Exportar ${titulo}`;
-botonExportar.className = "btn btn-secondary mt-2 d-block mx-auto";
-botonExportar.addEventListener("click", () => {
-    if (datos.length === 0) {
-        alert(`No hay datos en ${titulo} para exportar.`);
-        return;
-    }
-
-    // Solo CLAVE y CANT
-    const datosExportar = datos.map(fila => ({
-        CLAVE: fila[0],
-        CANT: parseInt(fila[2].split("/")[0], 10)
-    }));
-
-    // Crear hoja de Excel
-    const ws = XLSX.utils.json_to_sheet(datosExportar);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, titulo);
-
-    // Nombre del archivo con fecha
-    const hoy = new Date();
-    const fecha = hoy.toISOString().split("T")[0];
-    const fileName = `${titulo}_${fecha}.xls`;
-
-    // Generar Excel en base64 (Excel 97-2003)
-    const wbout = XLSX.write(wb, { bookType: "biff8", type: "base64" });
-
-    if (window.cordova && window.SAF) {
-        // 🔹 Pedimos al usuario la carpeta
-        window.SAF.getDirectory(function(uri){
-            saveExcelSAF(uri, wbout, fileName);
-        }, function(err){
-            alert("No se pudo seleccionar la carpeta: " + err);
-        });
-    } else {
-        // PC
-        XLSX.writeFile(wb, fileName, { bookType: "biff8" });
-    }
-});
-contenedor.appendChild(botonExportar);
-
-return contenedor;
-
-/* ================================
-   FUNCIONES PARA CORDOVA + SAF
-   ================================ */
-
-// Guardar archivo en la carpeta elegida por el usuario
-function saveExcelSAF(uri, base64Data, fileName){
-    window.SAF.writeFile(uri, fileName, base64Data, "base64",
-        function(){
-            alert("Archivo guardado correctamente: " + fileName);
-        },
-        function(err){
-            alert("Error guardando el archivo: " + err);
+    const botonExportar = document.createElement("button");
+    botonExportar.textContent = `Exportar ${titulo}`;
+    botonExportar.className = "btn btn-secondary mt-2 d-block mx-auto";
+    botonExportar.addEventListener("click", () => {
+        if (datos.length === 0) {
+            alert(`No hay datos en ${titulo} para exportar.`);
+            return;
         }
-    );
+
+        // Solo CLAVE y CANT
+        const datosExportar = datos.map(fila => ({
+            CLAVE: fila[0],
+            CANT: parseInt(fila[2].split("/")[0], 10)
+        }));
+
+        // Crear hoja de Excel
+        const ws = XLSX.utils.json_to_sheet(datosExportar);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, titulo);
+
+        // Nombre del archivo con fecha
+        const hoy = new Date();
+        const fecha = hoy.toISOString().split("T")[0];
+        const fileName = `${titulo}_${fecha}.xls`;
+
+        // Generar Excel en base64 (Excel 97-2003)
+        const wbout = XLSX.write(wb, { bookType: "biff8", type: "base64" });
+
+        // 🔥 SOLUCIÓN DEFINITIVA CON cordova-plugin-file
+// 🔥 VERSIÓN SUPER SIMPLE - Sin plugins nuevos
+if (window.cordova) {
+    // Para Cordova - Descarga directa con Data URL
+    exportarSimpleCordova(wbout, fileName, titulo);
+} else {
+    // Para navegador/PC
+    XLSX.writeFile(wb, fileName, { bookType: "biff8" });
 }
 
-// Convertir base64 a Blob (para otras funciones si las necesitas)
-function b64toBlob(b64Data, contentType) {
-    contentType = contentType || '';
-    const sliceSize = 512;
-    const byteCharacters = atob(b64Data);
-    const byteArrays = [];
+    });
+    contenedor.appendChild(botonExportar);
 
-    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-        const slice = byteCharacters.slice(offset, offset + sliceSize);
-        const byteNumbers = new Array(slice.length);
-        for (let i = 0; i < slice.length; i++) {
-            byteNumbers[i] = slice.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        byteArrays.push(byteArray);
-    }
-
-    return new Blob(byteArrays, { type: contentType });
-}
+    return contenedor;
 
     };
 
@@ -378,3 +342,30 @@ inputBusquedaTodo.addEventListener("keydown", function (event) {
         this.select();
     }
 });
+
+// Función para convertir base64 a Blob (necesaria para Cordova)
+function b64toBlob(b64Data, contentType, sliceSize) {
+    contentType = contentType || '';
+    sliceSize = sliceSize || 512;
+
+    const byteCharacters = atob(b64Data);
+    const byteArrays = [];
+
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        const slice = byteCharacters.slice(offset, offset + sliceSize);
+        const byteNumbers = new Array(slice.length);
+        
+        for (let i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+        }
+        
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+    }
+
+    return new Blob(byteArrays, { type: contentType });
+}
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/aztecadeoro/www/sw.js');
+}

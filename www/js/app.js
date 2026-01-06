@@ -278,50 +278,64 @@ function extraerProductosDesdeTexto(texto) {
 
   // Buscar dónde empieza la tabla (puede ser CANT UNI o CLAVE)
   let indiceTabla = texto.indexOf("CANT UNI");
-  if (indiceTabla === -1) {
-    indiceTabla = texto.indexOf("CLAVE");
-  }
-
+  if (indiceTabla === -1) indiceTabla = texto.indexOf("CLAVE");
   if (indiceTabla === -1) {
     console.warn("No se encontró inicio de tabla en el PDF.");
     return productos;
   }
 
-  const textoTabla = texto.slice(indiceTabla);
+  let textoTabla = texto.slice(indiceTabla);
 
-  console.log("Texto tabla procesado:", textoTabla);
+  // 🧹 LIMPIEZA PROFUNDA DE TEXTO (versión mejorada)
+  textoTabla = textoTabla
+    // Eliminar encabezados de tabla
+    .replace(/CANT\s+UNI\s+FACTOR\s+DESCRIPCIÓN\s+P\.?\s*UNIT\.?\s+IMPORTE/gi, "")
+    .replace(/CLAVE\s+DESCRIPCIÓN\s+CANT\.\s+P\.?\s*NETO\s+IMPORTE/gi, "")
+    // Eliminar bloques entre tablas
+    .replace(/Comentario:\s*Traspaso\s*Aplicado[^C]+(?=\sCLAVE|\sCANT)/gi, "")
+    .replace(/Traspaso\s+de\s+Artículos[\s\S]*?(?=\s\d{6,})/gi, "")
+    // Eliminar leyendas de pie de página
+    .replace(/Aplicado\s*Nº\s*Unidades.*?(?=\s\d+\.\d+)/gi, "")
+    .replace(/Generado\s*Por\s*SICAR.*?(?=\s\d+\.\d+)/gi, "")
+    .replace(/Página\s*\d+/gi, "")
+    .replace(/Folio\s*Solicitud:\s*\d+/gi, "")
+    // Eliminar fechas repetidas o encabezados tipo “Traspaso Fecha Aplicación”
+    .replace(/Traspaso\s+Fecha\s+Aplicación\s+Fecha\s+Generación/gi, "")
+    .replace(/\d{2}\/\d{2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(AM|PM)/gi, "")
+    // Normalizar espacios
+    .replace(/\s+/g, " ")
+    .trim();
 
-  // Regex para el nuevo formato (CANT UNI, FACTOR, DESCRIPCIÓN, P. UNIT., IMPORTE)
-  const regexNuevo = /(\d+\.\d+)\s+([A-Z]+)\s+(\d+\.\d+)\s+(.+?)\s+\$\s*([\d,]+\.\d{2,3})\s+\$\s*([\d,]+\.\d{2})/g;
+  console.log("Texto tabla limpio:", textoTabla);
+
+  // 🧩 REGEX para formato nuevo
+  const regexNuevo =
+    /(\d+\.\d+)\s+([A-Z]+)\s+(\d+\.\d+)\s+(.+?)\s+\$\s*([\d,]+\.\d{2,3})\s+\$\s*([\d,]+\.\d{2})/g;
 
   let match;
   while ((match = regexNuevo.exec(textoTabla)) !== null) {
-    console.log("Match encontrado:", match);
-
     const [, cantidad, unidad, factor, descripcion, pUnit, importe] = match;
-
     productos.push({
       "CANT": cantidad,
       "UNI FACTOR": `${unidad} ${factor}`,
       "DESCRIPCIÓN": descripcion.trim(),
       "P. UNIT.": `$${pUnit}`,
-      "IMPORTE": `$${importe}`
+      "IMPORTE": `$${importe}`,
     });
   }
 
-  // Regex para el formato viejo (CLAVE, DESCRIPCIÓN, CANT., P. NETO, IMPORTE)
+  // 🧩 REGEX para formato viejo (si no encontró productos)
   if (productos.length === 0) {
-    const regexViejo = /(\w+)\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
+    const regexViejo =
+      /(\w+)\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
     while ((match = regexViejo.exec(textoTabla)) !== null) {
-      console.log("Match (formato viejo) encontrado:", match);
-
       const [, clave, descripcion, cantidad, precioNeto, importe] = match;
       productos.push({
         "CLAVE": clave,
         "DESCRIPCIÓN": descripcion.trim(),
         "CANT.": cantidad,
         "P. NETO": precioNeto,
-        "IMPORTE": importe
+        "IMPORTE": importe,
       });
     }
   }
@@ -329,7 +343,6 @@ function extraerProductosDesdeTexto(texto) {
   console.log("Productos extraídos:", productos);
   return productos;
 }
-
 
 
 
