@@ -1,43 +1,93 @@
-//Permisos 
-document.addEventListener('deviceready', function () {
-    var permissions = cordova.plugins.permissions;
-    var list = [
-        permissions.READ_EXTERNAL_STORAGE,
-        permissions.WRITE_EXTERNAL_STORAGE
-    ];
+function normalizeKey(k) {
+  try {
+    return String(k)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s/g, "")
+      .toUpperCase();
+  } catch (e) {
+    return String(k).replace(/\s/g, "").toUpperCase();
+  }
+}
 
-    permissions.checkPermission(list, function (status) {
+function esColumnaCantKey(key) {
+  const n = normalizeKey(key);
+  return n === "CANT" || n === "CANT.";
+}
+
+function esColumnaClave(key) {
+  return normalizeKey(key) === "CLAVE";
+}
+
+function esColumnaDescripcion(key) {
+  return normalizeKey(key) === "DESCRIPCION";
+}
+
+function getAppMode() {
+  return window.APP_MODE || localStorage.getItem("appModo") || "revision";
+}
+
+function limpiarNombresArchivo() {
+  const a = document.getElementById("file-name-excel");
+  const b = document.getElementById("file-name-pdf");
+  if (a) a.textContent = "";
+  if (b) b.textContent = "";
+}
+
+function clearSessionData() {
+  localStorage.removeItem("entregadosPorArchivo");
+  localStorage.removeItem("datosEditados");
+  localStorage.removeItem("archivoActual");
+}
+
+document.addEventListener(
+  "deviceready",
+  function () {
+    if (!cordova.plugins || !cordova.plugins.permissions) return;
+    var permissions = cordova.plugins.permissions;
+    var list = [permissions.READ_EXTERNAL_STORAGE, permissions.WRITE_EXTERNAL_STORAGE];
+    permissions.checkPermission(
+      list,
+      function (status) {
         if (!status.hasPermission) {
-            permissions.requestPermissions(list, function (status) {
-                if (!status.hasPermission) {
-                    alert("Sin permisos no se puede guardar el archivo 😢");
-                }
-            }, function () {
-                alert("Error al pedir permisos");
-            });
+          permissions.requestPermissions(
+            list,
+            function (status2) {
+              if (!status2.hasPermission) {
+                console.warn("Algunos permisos de almacenamiento no fueron concedidos; la exportación usa carpeta de la app.");
+              }
+            },
+            function () {
+              console.warn("Error al solicitar permisos de almacenamiento.");
+            }
+          );
         }
-    }, null);
-}, false);
+      },
+      null
+    );
+  },
+  false
+);
 
 document.getElementById("input-excel").addEventListener("change", function (e) {
   const file = e.target.files[0];
-
   if (!file) return;
-
-  if (!file.name.endsWith(".xlsx")) {
-    alert("Solo se permiten archivos de excel");
+  if (!file.name.toLowerCase().endsWith(".xlsx")) {
+    alert("Solo se permiten archivos .xlsx");
     e.target.value = "";
     return;
   }
+  const el = document.getElementById("file-name-excel");
+  if (el) el.textContent = file.name;
+});
 
-  const nombreArchivo = file.name;
-
-  // Aquí haces tu lectura con FileReader y luego llamas a:
-  // displayData(parsedData, nombreArchivo);
+document.getElementById("input-pdf").addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  const el = document.getElementById("file-name-pdf");
+  if (el) el.textContent = file ? file.name : "";
 });
 
 function crearBotonFinalizar() {
-  // Verificar si el botón ya existe
   if (!document.getElementById("botonFinalizar")) {
     const botonFinalizar = document.createElement("button");
     botonFinalizar.id = "botonFinalizar";
@@ -46,22 +96,18 @@ function crearBotonFinalizar() {
     botonFinalizar.style.marginTop = "20px";
     botonFinalizar.style.marginBottom = "100px";
     botonFinalizar.addEventListener("click", mostrarResumen);
-
-    const botonContainer = document.getElementById("boton-container");
-    botonContainer.appendChild(botonFinalizar);
-  } else {
-    console.log("El botón de finalizar ya existe.");
+    document.getElementById("boton-container").appendChild(botonFinalizar);
   }
 }
 
 function displayData(data, nombreArchivo) {
- if (!Array.isArray(data) || data.length === 0 || typeof data[0] !== "object") {
-  alert("El archivo no contiene datos válidos.");
-  resetApp()
-  return;
-}
+  if (!Array.isArray(data) || data.length === 0 || typeof data[0] !== "object") {
+    alert("El archivo no contiene datos válidos.");
+    resetApp();
+    return;
+  }
 
-
+  const modo = getAppMode();
   localStorage.setItem("archivoActual", nombreArchivo);
 
   const entregadosPorArchivo = JSON.parse(localStorage.getItem("entregadosPorArchivo")) || {};
@@ -71,7 +117,6 @@ function displayData(data, nombreArchivo) {
     data = datosEditados[nombreArchivo];
   }
 
-
   const table = document.createElement("table");
   table.className = "tabla-estilizada";
 
@@ -79,6 +124,8 @@ function displayData(data, nombreArchivo) {
   const headerRow = header.insertRow();
 
   const keys = Object.keys(data[0]);
+  table._columnKeys = keys;
+
   keys.forEach(function (key) {
     const th = document.createElement("th");
     th.textContent = key;
@@ -90,63 +137,89 @@ function displayData(data, nombreArchivo) {
   headerRow.appendChild(thEntregado);
 
   const tbody = table.createTBody();
-  const campoEditable = "CANT."; // Campo que se va a editar
-  const campoEditableNuevo = "CANT"; // Campo que se va a editar
 
   data.forEach(function (row) {
     const tr = document.createElement("tr");
+    tr._rowData = row;
 
     keys.forEach(function (key) {
       const td = document.createElement("td");
 
-      if (key === campoEditable || key === campoEditableNuevo) {
-        // Crear controles de edición en la celda de CANT
+      if (esColumnaCantKey(key)) {
         const divEditable = document.createElement("div");
         divEditable.className = "d-flex align-items-center gap-2";
 
-        const originalValor = row[key];
-        const [parteEditable, parteFija] = originalValor.split(".", 2); // Ej: "15" y "0000/PZ"
+        const raw = row[key];
+        const valorInicial = raw != null ? String(raw) : "";
 
         const spanValor = document.createElement("span");
-        spanValor.textContent = originalValor;
+        spanValor.textContent = valorInicial;
 
         const inputEditar = document.createElement("input");
-        inputEditar.type = "number";
         inputEditar.className = "form-control form-control-sm";
         inputEditar.style.display = "none";
         inputEditar.style.fontSize = "12px";
-        inputEditar.style.maxWidth = "100px";
-        inputEditar.min = "0";
+        inputEditar.style.maxWidth = "120px";
 
+        if (modo === "pedido") {
+          inputEditar.type = "text";
+          inputEditar.setAttribute("inputmode", "decimal");
+          inputEditar.placeholder = "Cantidad";
+        } else {
+          inputEditar.type = "number";
+          inputEditar.min = "0";
+        }
 
         const botonEditar = document.createElement("button");
+        botonEditar.type = "button";
         botonEditar.className = "btn btn-outline-primary btn-sm p-1 d-flex align-items-center";
         botonEditar.style.fontSize = "12px";
-        botonEditar.innerHTML = `<i class="bi bi-pencil-square"></i>`;
+        botonEditar.innerHTML = '<i class="bi bi-pencil-square"></i>';
+
+        let parteEditable = "";
+        let parteFija = "";
 
         botonEditar.addEventListener("click", function () {
-          inputEditar.value = parteEditable; // solo la parte editable
+          const actual = row[key] != null ? String(row[key]) : "";
+          spanValor.textContent = actual;
+          if (modo === "revision") {
+            const parts = actual.split(".", 2);
+            parteEditable = parts[0] || "";
+            parteFija = parts.length > 1 ? parts[1] : "";
+            inputEditar.value = parteEditable;
+          } else {
+            inputEditar.value = actual;
+          }
           inputEditar.style.display = "inline-block";
           spanValor.style.display = "none";
           inputEditar.focus();
         });
 
-        inputEditar.addEventListener("focus", function() {
-          this.select()
+        inputEditar.addEventListener("focus", function () {
+          this.select();
         });
 
-       function guardarCambio() {
+        function guardarCambio() {
           const nuevoEditable = inputEditar.value.trim();
-          if (nuevoEditable !== "") {
-            const nuevoValor = `${nuevoEditable}.${parteFija}`;
-            row[key] = nuevoValor;
-            spanValor.textContent = nuevoValor;
-
-            // Guardar en localStorage si es necesario
-            const datosEditados = JSON.parse(localStorage.getItem("datosEditados")) || {};
-            datosEditados[nombreArchivo] = data;
-            localStorage.setItem("datosEditados", JSON.stringify(datosEditados));
+          if (nuevoEditable === "") {
+            inputEditar.style.display = "none";
+            spanValor.style.display = "inline-block";
+            return;
           }
+
+          let nuevoValor;
+          if (modo === "pedido") {
+            nuevoValor = nuevoEditable;
+          } else {
+            nuevoValor = parteFija !== "" ? nuevoEditable + "." + parteFija : nuevoEditable;
+          }
+
+          row[key] = nuevoValor;
+          spanValor.textContent = nuevoValor;
+
+          const datosEditados2 = JSON.parse(localStorage.getItem("datosEditados")) || {};
+          datosEditados2[nombreArchivo] = data;
+          localStorage.setItem("datosEditados", JSON.stringify(datosEditados2));
 
           inputEditar.style.display = "none";
           spanValor.style.display = "inline-block";
@@ -154,9 +227,7 @@ function displayData(data, nombreArchivo) {
 
         inputEditar.addEventListener("blur", guardarCambio);
         inputEditar.addEventListener("keydown", function (e) {
-          if (e.key === "Enter") {
-            guardarCambio();
-          }
+          if (e.key === "Enter") guardarCambio();
         });
 
         divEditable.appendChild(spanValor);
@@ -164,7 +235,7 @@ function displayData(data, nombreArchivo) {
         divEditable.appendChild(botonEditar);
         td.appendChild(divEditable);
       } else {
-        td.textContent = row[key];
+        td.textContent = row[key] != null ? String(row[key]) : "";
       }
 
       tr.appendChild(td);
@@ -177,7 +248,9 @@ function displayData(data, nombreArchivo) {
     checkbox.type = "checkbox";
     checkbox.className = "form-check-input entregado-checkbox m-0";
 
-    const valoresFila = Object.values(row).join("|");
+    const valoresFila = keys.map(function (k) {
+      return row[k] != null ? String(row[k]) : "";
+    }).join("|");
     const idFila = btoa(encodeURIComponent(nombreArchivo + "|" + valoresFila));
 
     if (entregadosGuardados[idFila]) {
@@ -187,27 +260,25 @@ function displayData(data, nombreArchivo) {
     }
 
     checkbox.addEventListener("change", function () {
-      const tr = this.closest("tr");
-
+      const trEl = this.closest("tr");
       const entregadosPorArchivoActual = JSON.parse(localStorage.getItem("entregadosPorArchivo")) || {};
       entregadosPorArchivoActual[nombreArchivo] = entregadosPorArchivoActual[nombreArchivo] || {};
 
       if (this.checked) {
-        tr.classList.add("entregado");
-        tr.style.display = "none";
+        trEl.classList.add("entregado");
+        trEl.style.display = "none";
         entregadosPorArchivoActual[nombreArchivo][idFila] = true;
       } else {
-        tr.classList.remove("entregado");
-        tr.style.display = "";
+        trEl.classList.remove("entregado");
+        trEl.style.display = "";
         delete entregadosPorArchivoActual[nombreArchivo][idFila];
       }
 
       localStorage.setItem("entregadosPorArchivo", JSON.stringify(entregadosPorArchivoActual));
 
-      setTimeout(() => {
+      setTimeout(function () {
         const seccion1 = document.getElementById("seccion-filtro");
         const seccion2 = document.getElementById("seccion-filtroTodo");
-
         if (getComputedStyle(seccion1).display === "block") {
           document.getElementById("searchInput").focus();
         } else if (getComputedStyle(seccion2).display === "block") {
@@ -229,54 +300,67 @@ function displayData(data, nombreArchivo) {
   crearBotonFinalizar();
 }
 
-
 async function leerPDF(arrayBuffer, nombreArchivo) {
+  if (getAppMode() !== "revision") {
+    alert("Los PDF de traspaso solo aplican en modo «Revisar pedido / traspaso».");
+    return;
+  }
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   let textoCompleto = "";
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const strings = content.items.map(item => item.str);
+    const strings = content.items.map(function (item) {
+      return item.str;
+    });
     textoCompleto += strings.join(" ") + "\n";
   }
 
-  // 🔧 Normalizar espacios
   textoCompleto = textoCompleto.replace(/\s+/g, " ").trim();
 
-  // Validaciones de formato
-  const esFormatoViejo = textoCompleto.includes("CLAVE") && textoCompleto.includes("DESCRIPCIÓN") && textoCompleto.includes("CANT.");
-  const esFormatoNuevo = textoCompleto.includes("CANT UNI") && textoCompleto.includes("FACTOR") && textoCompleto.includes("DESCRIPCIÓN");
+  const esFormatoViejo =
+    textoCompleto.includes("CLAVE") &&
+    textoCompleto.includes("DESCRIPCIÓN") &&
+    textoCompleto.includes("CANT.");
+  const esFormatoNuevo =
+    textoCompleto.includes("CANT UNI") &&
+    textoCompleto.includes("FACTOR") &&
+    textoCompleto.includes("DESCRIPCIÓN");
 
   if (!esFormatoViejo && !esFormatoNuevo) {
-    alert("⚠️ El archivo no tiene el formato esperado. Asegúrate de cargar un archivo válido.");
+    alert("El archivo no tiene el formato esperado. Asegúrate de cargar un PDF válido de SICAR.");
     resetApp();
     return;
   }
 
   const productos = extraerProductosDesdeTexto(textoCompleto);
   displayData(productos, nombreArchivo);
-  console.log("Texto extraído del PDF:", textoCompleto);
 }
-
 
 function resetApp() {
   document.getElementById("tabla-contenedor").innerHTML = "";
   document.getElementById("resumen-final").innerHTML = "";
   document.getElementById("input-excel").value = "";
   document.getElementById("input-pdf").value = "";
-  document.getElementById("file-name").textContent = "";
+  limpiarNombresArchivo();
   document.getElementById("searchInput").value = "";
+  document.getElementById("searchInputTodo").value = "";
   document.getElementById("seccion-filtro").style.display = "none";
+  document.getElementById("seccion-filtroTodo").style.display = "none";
   document.getElementById("boton-container").innerHTML = "";
+  document.getElementById("limpiar-container").style.display = "none";
+  document.getElementById("tipo-archivo").value = "";
+  document.getElementById("excel").style.display = "none";
+  document.getElementById("pdf").style.display = "none";
+  document.getElementById("btn-cargar").style.display = "none";
+  clearSessionData();
   document.getElementById("seccion-input").style.display = "block";
-  localStorage.clear();
 }
 
 function extraerProductosDesdeTexto(texto) {
   const productos = [];
 
-  // Buscar dónde empieza la tabla (puede ser CANT UNI o CLAVE)
   let indiceTabla = texto.indexOf("CANT UNI");
   if (indiceTabla === -1) indiceTabla = texto.indexOf("CLAVE");
   if (indiceTabla === -1) {
@@ -286,89 +370,72 @@ function extraerProductosDesdeTexto(texto) {
 
   let textoTabla = texto.slice(indiceTabla);
 
-  // 🧹 LIMPIEZA PROFUNDA DE TEXTO (versión mejorada)
   textoTabla = textoTabla
-    // Eliminar encabezados de tabla
     .replace(/CANT\s+UNI\s+FACTOR\s+DESCRIPCIÓN\s+P\.?\s*UNIT\.?\s+IMPORTE/gi, "")
     .replace(/CLAVE\s+DESCRIPCIÓN\s+CANT\.\s+P\.?\s*NETO\s+IMPORTE/gi, "")
-    // Eliminar bloques entre tablas
     .replace(/Comentario:\s*Traspaso\s*Aplicado[^C]+(?=\sCLAVE|\sCANT)/gi, "")
     .replace(/Traspaso\s+de\s+Artículos[\s\S]*?(?=\s\d{6,})/gi, "")
-    // Eliminar leyendas de pie de página
     .replace(/Aplicado\s*Nº\s*Unidades.*?(?=\s\d+\.\d+)/gi, "")
     .replace(/Generado\s*Por\s*SICAR.*?(?=\s\d+\.\d+)/gi, "")
     .replace(/Página\s*\d+/gi, "")
     .replace(/Folio\s*Solicitud:\s*\d+/gi, "")
-    // Eliminar fechas repetidas o encabezados tipo “Traspaso Fecha Aplicación”
     .replace(/Traspaso\s+Fecha\s+Aplicación\s+Fecha\s+Generación/gi, "")
     .replace(/\d{2}\/\d{2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(AM|PM)/gi, "")
-    // Normalizar espacios
     .replace(/\s+/g, " ")
     .trim();
 
-  console.log("Texto tabla limpio:", textoTabla);
-
-  // 🧩 REGEX para formato nuevo
   const regexNuevo =
     /(\d+\.\d+)\s+([A-Z]+)\s+(\d+\.\d+)\s+(.+?)\s+\$\s*([\d,]+\.\d{2,3})\s+\$\s*([\d,]+\.\d{2})/g;
 
   let match;
   while ((match = regexNuevo.exec(textoTabla)) !== null) {
-    const [, cantidad, unidad, factor, descripcion, pUnit, importe] = match;
+    const cantidad = match[1];
+    const unidad = match[2];
+    const factor = match[3];
+    const descripcion = match[4];
+    const pUnit = match[5];
+    const importe = match[6];
     productos.push({
-      "CANT": cantidad,
-      "UNI FACTOR": `${unidad} ${factor}`,
-      "DESCRIPCIÓN": descripcion.trim(),
-      "P. UNIT.": `$${pUnit}`,
-      "IMPORTE": `$${importe}`,
+      CANT: cantidad,
+      "UNI FACTOR": unidad + " " + factor,
+      DESCRIPCIÓN: descripcion.trim(),
+      "P. UNIT.": "$" + pUnit,
+      IMPORTE: "$" + importe,
     });
   }
 
-  // 🧩 REGEX para formato viejo (si no encontró productos)
   if (productos.length === 0) {
-    const regexViejo =
-      /(\w+)\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
+    const regexViejo = /(\w+)\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
     while ((match = regexViejo.exec(textoTabla)) !== null) {
-      const [, clave, descripcion, cantidad, precioNeto, importe] = match;
+      const clave = match[1];
+      const descripcion = match[2];
+      const cantidad = match[3];
+      const precioNeto = match[4];
+      const importe = match[5];
       productos.push({
-        "CLAVE": clave,
-        "DESCRIPCIÓN": descripcion.trim(),
+        CLAVE: clave,
+        DESCRIPCIÓN: descripcion.trim(),
         "CANT.": cantidad,
         "P. NETO": precioNeto,
-        "IMPORTE": importe,
+        IMPORTE: importe,
       });
     }
   }
 
-  console.log("Productos extraídos:", productos);
   return productos;
 }
 
-
-
 document.getElementById("btn-limpiar").addEventListener("click", function () {
-  // Limpiar tabla
   document.getElementById("tabla-contenedor").innerHTML = "";
-
-  // Limpiar resumen
   document.getElementById("resumen-final").innerHTML = "";
-
-  // Limpiar input file
   document.getElementById("input-excel").value = "";
-
-  // Limpiar nombre del archivo
-  document.getElementById("file-name").textContent = "";
-
-  // Limpiar filtro
+  document.getElementById("input-pdf").value = "";
+  limpiarNombresArchivo();
   document.getElementById("searchInput").value = "";
-
-  // Ocultar filtro y botón si se estaban mostrando
+  document.getElementById("searchInputTodo").value = "";
   document.getElementById("seccion-filtro").style.display = "none";
+  document.getElementById("seccion-filtroTodo").style.display = "none";
   document.getElementById("boton-container").innerHTML = "";
-
-  // Volver a mostrar el input de carga
   document.getElementById("seccion-input").style.display = "block";
-
-  // Limpiar localStorage de entregados
-  localStorage.clear();
+  clearSessionData();
 });
