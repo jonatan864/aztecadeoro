@@ -451,7 +451,14 @@ function extraerLineasPdfFormatoViejo(textoTabla) {
      const bloque = (match[1] || "")
       .replace(/^.*CLAVE\s+DESCRIPCI\S*N\s+CANT\.\s+P\.?\s*NETO\s+IMPORTE\s*/i, "")
       .trim();
-    const partes = bloque.match(/^(\S+)\s+(.+)$/);
+    let partes = bloque.match(/^(\S+)\s+(.+)$/);
+
+    if (partes && !esLineaProductoPdfViejoValida(partes[1], partes[2])) {
+      const productoDentroDelBloque = bloque.match(/(\d{5,}\s+.+)$/);
+      if (productoDentroDelBloque) {
+        partes = productoDentroDelBloque[1].match(/^(\S+)\s+(.+)$/);
+      }
+    }
 
     if (partes) {
       candidatos.push({
