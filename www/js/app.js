@@ -397,7 +397,6 @@ function extraerProductosDesdeTexto(texto) {
       " "
     )
     .replace(/\s*\/\s*\d+\s*Generado\s*Por\s*SICAR\s*P[aá]gina\s*\d+/gi, " ")
-    .replace(/Generado\s*Por\s*SICAR\s*P[aá]gina\s*\d+/gi, " ")
     .replace(/Traspaso\s+de\s+Artículos[\s\S]*?(?=\s\d{6,})/gi, "")
     .replace(/Aplicado\s*Nº\s*Unidades.*?(?=\s\d+\.\d+)/gi, "")
     .replace(/Página\s*\d+/gi, "")
@@ -449,7 +448,7 @@ function extraerLineasPdfFormatoViejo(textoTabla) {
   let match;
 
   while ((match = regexLinea.exec(textoTabla)) !== null) {
-    const bloque = (match[1] || "")
+     const bloque = (match[1] || "")
       .replace(/^.*CLAVE\s+DESCRIPCI\S*N\s+CANT\.\s+P\.?\s*NETO\s+IMPORTE\s*/i, "")
       .trim();
     const partes = bloque.match(/^(\S+)\s+(.+)$/);
