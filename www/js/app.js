@@ -23,6 +23,20 @@ function esColumnaDescripcion(key) {
   return normalizeKey(key) === "DESCRIPCION";
 }
 
+function esColumnaPrecioOImporte(key) {
+  const n = normalizeKey(key);
+  if (n.indexOf("IMPORTE") !== -1) {
+    return true;
+  }
+  if (n.indexOf("NETO") !== -1 && n.indexOf("P") !== -1) {
+    return true;
+  }
+  if (n.indexOf("UNIT") !== -1 && n.indexOf("P") !== -1) {
+    return true;
+  }
+  return false;
+}
+
 function getAppMode() {
   return window.APP_MODE || localStorage.getItem("appModo") || "revision";
 }
@@ -125,8 +139,11 @@ function displayData(data, nombreArchivo) {
 
   const keys = Object.keys(data[0]);
   table._columnKeys = keys;
+  const keysMostrar = keys.filter(function (key) {
+    return !esColumnaPrecioOImporte(key);
+  });
 
-  keys.forEach(function (key) {
+  keysMostrar.forEach(function (key) {
     const th = document.createElement("th");
     th.textContent = key;
     headerRow.appendChild(th);
@@ -142,7 +159,7 @@ function displayData(data, nombreArchivo) {
     const tr = document.createElement("tr");
     tr._rowData = row;
 
-    keys.forEach(function (key) {
+    keysMostrar.forEach(function (key) {
       const td = document.createElement("td");
 
       if (esColumnaCantKey(key)) {
@@ -373,10 +390,16 @@ function extraerProductosDesdeTexto(texto) {
   textoTabla = textoTabla
     .replace(/CANT\s+UNI\s+FACTOR\s+DESCRIPCIÓN\s+P\.?\s*UNIT\.?\s+IMPORTE/gi, "")
     .replace(/CLAVE\s+DESCRIPCIÓN\s+CANT\.\s+P\.?\s*NETO\s+IMPORTE/gi, "")
+    .replace(/CLAVEDESCRIPCIÓNCANT\.P\.\s*NETOIMPORTE/gi, "")
     .replace(/Comentario:\s*Traspaso\s*Aplicado[^C]+(?=\sCLAVE|\sCANT)/gi, "")
+    .replace(
+      /Comentario:\s*N[ºo]?\s*Unidades:\s*[\d.]+\s*Total\s*\$[\d.,]+(?:\s*[\d/:\sAPM-]+)?(?:\s*\/\s*\d+)?/gi,
+      " "
+    )
+    .replace(/\s*\/\s*\d+\s*Generado\s*Por\s*SICAR\s*P[aá]gina\s*\d+/gi, " ")
+    .replace(/Generado\s*Por\s*SICAR\s*P[aá]gina\s*\d+/gi, " ")
     .replace(/Traspaso\s+de\s+Artículos[\s\S]*?(?=\s\d{6,})/gi, "")
     .replace(/Aplicado\s*Nº\s*Unidades.*?(?=\s\d+\.\d+)/gi, "")
-    .replace(/Generado\s*Por\s*SICAR.*?(?=\s\d+\.\d+)/gi, "")
     .replace(/Página\s*\d+/gi, "")
     .replace(/Folio\s*Solicitud:\s*\d+/gi, "")
     .replace(/Traspaso\s+Fecha\s+Aplicación\s+Fecha\s+Generación/gi, "")
@@ -405,24 +428,106 @@ function extraerProductosDesdeTexto(texto) {
   }
 
   if (productos.length === 0) {
-    const regexViejo = /(\w+)\s+(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})/g;
-    while ((match = regexViejo.exec(textoTabla)) !== null) {
-      const clave = match[1];
-      const descripcion = match[2];
-      const cantidad = match[3];
-      const precioNeto = match[4];
-      const importe = match[5];
+    extraerLineasPdfFormatoViejo(textoTabla).forEach(function (linea) {
       productos.push({
-        CLAVE: clave,
-        DESCRIPCIÓN: descripcion.trim(),
-        "CANT.": cantidad,
-        "P. NETO": precioNeto,
-        IMPORTE: importe,
+        CLAVE: linea.clave,
+        DESCRIPCIÓN: linea.descripcion,
+        "CANT.": linea.cantidad,
+        "P. NETO": linea.precioNeto,
+        IMPORTE: linea.importe,
+      });
+    });
+  }
+
+  return productos;
+}
+
+function extraerLineasPdfFormatoViejo(textoTabla) {
+  const candidatos = [];
+
+  const regexLinea = /(.+?)\s+(\d+\.\d{4}\/\w+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})(?=\s+\S|$)/g;
+  let match;
+
+  while ((match = regexLinea.exec(textoTabla)) !== null) {
+    const bloque = (match[1] || "")
+      .replace(/^.*CLAVE\s+DESCRIPCI\S*N\s+CANT\.\s+P\.?\s*NETO\s+IMPORTE\s*/i, "")
+      .trim();
+    const partes = bloque.match(/^(\S+)\s+(.+)$/);
+
+    if (partes) {
+      candidatos.push({
+        priority: 1,
+        start: match.index,
+        end: match.index + match[0].length,
+        clave: partes[1],
+        descripcion: partes[2].trim(),
+        cantidad: match[2],
+        precioNeto: match[3],
+        importe: match[4],
       });
     }
   }
 
-  return productos;
+  candidatos.sort(function (a, b) {
+    if (a.start !== b.start) {
+      return a.start - b.start;
+    }
+    return a.priority - b.priority;
+  });
+
+  const elegidos = [];
+  for (let i = 0; i < candidatos.length; i++) {
+    const c = candidatos[i];
+    if (!esLineaProductoPdfViejoValida(c.clave, c.descripcion)) {
+      continue;
+    }
+    while (elegidos.length > 0 && elegidos[elegidos.length - 1].end > c.start) {
+      const last = elegidos[elegidos.length - 1];
+      if (last.priority > c.priority) {
+        elegidos.pop();
+      } else {
+        break;
+      }
+    }
+    if (elegidos.length === 0 || elegidos[elegidos.length - 1].end <= c.start) {
+      elegidos.push(c);
+    }
+  }
+
+  return elegidos;
+}
+
+function esLineaProductoPdfViejoValida(clave, descripcion) {
+  const desc = (descripcion || "").toUpperCase();
+  const c = String(clave || "").trim();
+  if (!c) {
+    return false;
+  }
+  if (/^(TOTAL|COMENTARIO|GENERADO|SICAR|TRASPASO|CLAVE|IMPORTE|PAGINA|FUENTE|FOLIO)$/i.test(c)) {
+    return false;
+  }
+  if (/TOTAL\s*\$/.test(desc)) {
+    return false;
+  }
+  if (/N[ºO]?\s*UNIDADES/.test(desc)) {
+    return false;
+  }
+  if (/GENERADO\s+POR/.test(desc) || /SICAR\s*P/.test(desc)) {
+    return false;
+  }
+  if (/TRASPASO\s+DE\s+ART/.test(desc)) {
+    return false;
+  }
+  if (/FOLIO\s+SOLICITUD/.test(desc)) {
+    return false;
+  }
+  if (/CLAVEDESCRIPCI[OÓ]N/.test(desc)) {
+    return false;
+  }
+  if (/^\d+$/.test(c) && c.length < 5) {
+    return false;
+  }
+  return true;
 }
 
 document.getElementById("btn-limpiar").addEventListener("click", function () {

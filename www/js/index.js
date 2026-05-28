@@ -120,8 +120,7 @@ document.getElementById("btn-cargar").addEventListener("click", function () {
       const workbook = XLSX.read(data, { type: "array" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const json = XLSX.utils.sheet_to_json(sheet);
-      displayData(json, archivo.name);
+      const json = XLSX.utils.sheet_to_json(sheet, { raw: false, defval: "" });      displayData(json, archivo.name);
     };
     reader.readAsArrayBuffer(archivo);
   }
