@@ -5,7 +5,9 @@
   "description": "A sample Apache Cordova application that responds to the deviceready event.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "keywords": [
     "ecosystem:cordova"
@@ -20,7 +22,8 @@
     "cordova-plugin-filechooser": "^1.2.0",
     "cordova-plugin-filepath": "^1.6.0",
     "cordova-plugin-filepicker": "^1.1.6",
-    "cordova-plugin-splashscreen": "^6.0.1"
+    "cordova-plugin-splashscreen": "^6.0.1",
+    "wrangler": "^4.101.0"
   },
   "cordova": {
     "platforms": [
