@@ -1,7 +1,14 @@
 let timeout;
+function irAlInicioCuandoHayBusqueda(filtro) {
+  if (filtro !== "") {
+    document.getElementById("inicio").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
 document.getElementById("searchInput").addEventListener("input", function () {
   clearTimeout(timeout);
   const filtro = this.value.toLowerCase();
+  irAlInicioCuandoHayBusqueda(filtro);
   timeout = setTimeout(function () {
     const filas = document.querySelectorAll("#tabla-contenedor table tbody tr");
     filas.forEach(function (fila) {
@@ -17,9 +24,11 @@ document.getElementById("searchInput").addEventListener("input", function () {
 });
 
 let timeoutT;
+
 document.getElementById("searchInputTodo").addEventListener("input", function () {
   clearTimeout(timeoutT);
   const filtro = this.value.toLowerCase();
+  irAlInicioCuandoHayBusqueda(filtro);
   timeoutT = setTimeout(function () {
     const filas = document.querySelectorAll("#tabla-contenedor table tbody tr");
     filas.forEach(function (fila) {
@@ -46,19 +55,12 @@ function aplicarInterfazPorModo() {
   const opcionPdf = document.getElementById("opcion-pdf");
   const label = document.getElementById("modo-activo-label");
   const titulo = document.getElementById("titulo-flujo");
-  const selectTipo = document.getElementById("tipo-archivo");
   if (m === "pedido") {
-    if (opcionPdf) opcionPdf.hidden = true;
-    if (selectTipo && selectTipo.value === "pdf") {
-      selectTipo.value = "";
-      document.getElementById("excel").style.display = "none";
-      document.getElementById("pdf").style.display = "none";
-      document.getElementById("btn-cargar").style.display = "none";
-    }
+    if (opcionPdf) opcionPdf.hidden = false;
     if (label) {
       label.textContent = "Modo: hacer pedido — surtido desde bodega (CANT editable por completo)";
     }
-    if (titulo) titulo.textContent = "Cargar Excel del pedido (sucursal)";
+    if (titulo) titulo.textContent = "Cargar Excel o PDF del pedido (sucursal)";
   } else {
     if (opcionPdf) opcionPdf.hidden = false;
     if (label) {
@@ -120,16 +122,13 @@ document.getElementById("btn-cargar").addEventListener("click", function () {
       const workbook = XLSX.read(data, { type: "array" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const json = XLSX.utils.sheet_to_json(sheet, { raw: false, defval: "" });      displayData(json, archivo.name);
+      const json = XLSX.utils.sheet_to_json(sheet, { raw: false, defval: "" });
+      displayData(json, archivo.name);
     };
     reader.readAsArrayBuffer(archivo);
   }
 
   if (tipoArchivo === "pdf") {
-    if (typeof getAppMode === "function" && getAppMode() === "pedido") {
-      alert("En modo «Hacer pedido» solo se admite Excel.");
-      return;
-    }
     const archivoPDF = document.getElementById("input-pdf").files[0];
     if (!archivoPDF) {
       alert("Por favor, selecciona un archivo PDF.");

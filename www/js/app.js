@@ -1,10 +1,21 @@
 function normalizeKey(k) {
   try {
-    return String(k)
+    const normalized = String(k)
+      .replace(/\u00c3[\u0093\u201c]/g, "O")
+      .replace(/\u00c3\u00b3/g, "o")
+      .replace(/\u00c3\u00a1/g, "a")
+      .replace(/\u00c3\u00a9/g, "e")
+      .replace(/\u00c3\u00ad/g, "i")
+      .replace(/\u00c3\u00ba/g, "u")
+      .replace(/\u00c3\u00b1/g, "n")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/\s/g, "")
       .toUpperCase();
+    if (/^DESCRIPCI.*N$/.test(normalized)) {
+      return "DESCRIPCION";
+    }
+    return normalized;
   } catch (e) {
     return String(k).replace(/\s/g, "").toUpperCase();
   }
@@ -111,6 +122,15 @@ function crearBotonFinalizar() {
     botonFinalizar.style.marginBottom = "100px";
     botonFinalizar.addEventListener("click", mostrarResumen);
     document.getElementById("boton-container").appendChild(botonFinalizar);
+  }
+}
+
+function enfocarSinDesplazar(input) {
+  if (!input) return;
+  try {
+    input.focus({ preventScroll: true });
+  } catch (e) {
+    input.focus();
   }
 }
 
@@ -297,9 +317,9 @@ function displayData(data, nombreArchivo) {
         const seccion1 = document.getElementById("seccion-filtro");
         const seccion2 = document.getElementById("seccion-filtroTodo");
         if (getComputedStyle(seccion1).display === "block") {
-          document.getElementById("searchInput").focus();
+          enfocarSinDesplazar(document.getElementById("searchInput"));
         } else if (getComputedStyle(seccion2).display === "block") {
-          document.getElementById("searchInputTodo").focus();
+          enfocarSinDesplazar(document.getElementById("searchInputTodo"));
         }
       }, 50);
     });
@@ -318,10 +338,6 @@ function displayData(data, nombreArchivo) {
 }
 
 async function leerPDF(arrayBuffer, nombreArchivo) {
-  if (getAppMode() !== "revision") {
-    alert("Los PDF de traspaso solo aplican en modo «Revisar pedido / traspaso».");
-    return;
-  }
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   let textoCompleto = "";
 
@@ -336,23 +352,52 @@ async function leerPDF(arrayBuffer, nombreArchivo) {
 
   textoCompleto = textoCompleto.replace(/\s+/g, " ").trim();
 
-  const esFormatoViejo =
-    textoCompleto.includes("CLAVE") &&
-    textoCompleto.includes("DESCRIPCIÓN") &&
-    textoCompleto.includes("CANT.");
-  const esFormatoNuevo =
-    textoCompleto.includes("CANT UNI") &&
-    textoCompleto.includes("FACTOR") &&
-    textoCompleto.includes("DESCRIPCIÓN");
-
-  if (!esFormatoViejo && !esFormatoNuevo) {
-    alert("El archivo no tiene el formato esperado. Asegúrate de cargar un PDF válido de SICAR.");
+  const productos = extraerProductosDesdeTexto(textoCompleto);
+  if (!productos.length) {
+    alert("No se pudieron leer productos del PDF. AsegÃºrate de cargar un archivo con tabla de productos.");
     resetApp();
     return;
   }
 
-  const productos = extraerProductosDesdeTexto(textoCompleto);
-  displayData(productos, nombreArchivo);
+  const modo = getAppMode();
+  const datosMostrar = modo === "pedido" ? normalizarProductosPdfParaPedido(productos) : productos;
+
+  if (!datosMostrar.length) {
+    alert("El PDF no contiene columnas reconocibles para este modo.");
+    resetApp();
+    return;
+  }
+
+  displayData(datosMostrar, nombreArchivo);
+}
+
+function normalizarProductosPdfParaPedido(productos) {
+  return productos
+    .map(function (row) {
+      const keys = Object.keys(row);
+      let clave = "";
+      let descripcion = "";
+      let cant = "";
+
+      keys.forEach(function (key) {
+        if (esColumnaClave(key)) {
+          clave = row[key] != null ? String(row[key]) : "";
+        } else if (esColumnaDescripcion(key)) {
+          descripcion = row[key] != null ? String(row[key]) : "";
+        } else if (esColumnaCantKey(key)) {
+          cant = row[key] != null ? String(row[key]) : "";
+        }
+      });
+
+      return {
+        CLAVE: clave,
+        ["DESCRIPCI\u00d3N"]: descripcion,
+        CANT: cant,
+      };
+    })
+    .filter(function (row) {
+      return row.CLAVE || row["DESCRIPCI\u00d3N"] || row.CANT;
+    });
 }
 
 function resetApp() {
