@@ -499,9 +499,15 @@ function extraerLineasPdfFormatoViejo(textoTabla) {
     let partes = bloque.match(/^(\S+)\s+(.+)$/);
 
     if (partes && !esLineaProductoPdfViejoValida(partes[1], partes[2])) {
-      const productoDentroDelBloque = bloque.match(/(\d{5,}\s+.+)$/);
+      const tokens = bloque.split(/\s+/);
+      let productoDentroDelBloque = "";
+      for (let j = 0; j < tokens.length - 1; j++) {
+        if (/^\d{4,}$/.test(tokens[j])) {
+          productoDentroDelBloque = tokens.slice(j).join(" ");
+        }
+      }
       if (productoDentroDelBloque) {
-        partes = productoDentroDelBloque[1].match(/^(\S+)\s+(.+)$/);
+        partes = productoDentroDelBloque.match(/^(\S+)\s+(.+)$/);
       }
     }
 
@@ -575,7 +581,7 @@ function esLineaProductoPdfViejoValida(clave, descripcion) {
   if (/CLAVEDESCRIPCI[OÓ]N/.test(desc)) {
     return false;
   }
-  if (/^\d+$/.test(c) && c.length < 5) {
+  if (/^\d+$/.test(c) && c.length < 4) {
     return false;
   }
   return true;
