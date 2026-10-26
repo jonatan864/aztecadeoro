@@ -363,20 +363,22 @@ function mostrarResumen() {
         return;
       }
 
-      const datosExportar = datos.map(function (fila) {
-        return {
-          CLAVE: fila[0],
-          CANT: parseCantParaExportar(fila[2]),
-        };
+      // SICAR importa un libro Excel 97-2003 cuya primera hoja usa estas
+      // dos columnas exactas. Las claves se escriben como texto para no
+      // perder ceros iniciales y la cantidad se conserva como numero.
+      const filasSicar = datos.map(function (fila) {
+        const clave = String(fila[0] != null ? fila[0] : "").trim();
+        const cantidad = parseCantParaExportar(fila[2]);
+        return [clave, cantidad];
       });
-
-      const ws = XLSX.utils.json_to_sheet(datosExportar);
+      const ws = XLSX.utils.aoa_to_sheet([["CLAVE", "CANTIDAD"]].concat(filasSicar));
+      ws["!cols"] = [{ wch: 22 }, { wch: 10 }];
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, titulo.substring(0, 31));
+      XLSX.utils.book_append_sheet(wb, ws, "Inventario Fecha");
 
       const hoy = new Date();
       const fecha = hoy.toISOString().split("T")[0];
-      const fileName = titulo.replace(/\s+/g, "_") + "_" + fecha + ".xls";
+      const fileName = "Inventario_Fecha_" + fecha + ".xls";
 
       const wbout = XLSX.write(wb, { bookType: "biff8", type: "base64" });
 

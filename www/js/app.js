@@ -339,6 +339,19 @@ function displayData(data, nombreArchivo) {
 
 async function leerPDF(arrayBuffer, nombreArchivo) {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const productosPorPosicion = await extraerProductosPdfPorPosicion(pdf);
+
+  if (productosPorPosicion.length) {
+    const modo = getAppMode();
+    const datosMostrar =
+      modo === "pedido" ? normalizarProductosPdfParaPedido(productosPorPosicion) : productosPorPosicion;
+
+    displayData(datosMostrar, nombreArchivo);
+    return;
+  }
+
+  // Conserva el lector anterior como respaldo para formatos que no tienen las
+  // columnas CLAVE, DESCRIPCION, CANT., P. NETO e IMPORTE del almacen.
   let textoCompleto = "";
 
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -369,6 +382,154 @@ async function leerPDF(arrayBuffer, nombreArchivo) {
   }
 
   displayData(datosMostrar, nombreArchivo);
+}
+
+function normalizarTextoPdf(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function agruparRenglonesPdf(items, toleranciaY) {
+  const ordenados = items
+    .filter(function (item) {
+      return item && item.str && String(item.str).trim();
+    })
+    .map(function (item) {
+      return {
+        texto: String(item.str).trim(),
+        x: item.transform[4],
+        y: item.transform[5],
+      };
+    })
+    .sort(function (a, b) {
+      if (Math.abs(b.y - a.y) > toleranciaY) return b.y - a.y;
+      return a.x - b.x;
+    });
+
+  const renglones = [];
+  ordenados.forEach(function (item) {
+    let renglon = renglones[renglones.length - 1];
+    if (!renglon || Math.abs(renglon.y - item.y) > toleranciaY) {
+      renglon = { y: item.y, items: [] };
+      renglones.push(renglon);
+    }
+    renglon.items.push(item);
+  });
+
+  renglones.forEach(function (renglon) {
+    renglon.items.sort(function (a, b) {
+      return a.x - b.x;
+    });
+  });
+  return renglones;
+}
+
+function obtenerColumnasAlmacen(renglones) {
+  for (let i = 0; i < renglones.length; i++) {
+    const renglon = renglones[i];
+    const texto = normalizarTextoPdf(
+      renglon.items
+        .map(function (item) {
+          return item.texto;
+        })
+        .join(" ")
+    ).toUpperCase();
+
+    if (
+      texto.indexOf("CLAVE") !== -1 &&
+      texto.indexOf("DESCRIPCI") !== -1 &&
+      texto.indexOf("CANT") !== -1 &&
+      texto.indexOf("NETO") !== -1 &&
+      texto.indexOf("IMPORTE") !== -1
+    ) {
+      const buscarX = function (patron) {
+        const item = renglon.items.find(function (elemento) {
+          return patron.test(normalizarTextoPdf(elemento.texto).toUpperCase());
+        });
+        return item ? item.x : null;
+      };
+      const clave = buscarX(/^CLAVE$/);
+      const descripcion = buscarX(/^DESCRIPCI/);
+      const cantidad = buscarX(/^CANT/);
+      const neto = buscarX(/^P\.?\s*NETO$/) || buscarX(/^P\.?$/) || buscarX(/^NETO$/);
+      const importe = buscarX(/^IMPORTE$/);
+
+      if ([clave, descripcion, cantidad, neto, importe].every(function (x) { return x !== null; })) {
+        return {
+          yEncabezado: renglon.y,
+          limites: [
+            (clave + descripcion) / 2,
+            (descripcion + cantidad) / 2,
+            (cantidad + neto) / 2,
+            (neto + importe) / 2,
+          ],
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function textoColumnaPdf(items, desde, hasta) {
+  return items
+    .filter(function (item) {
+      return item.x >= desde && item.x < hasta;
+    })
+    .map(function (item) {
+      return item.texto;
+    })
+    .join(" ")
+    .trim();
+}
+
+function esCantidadPdfValida(cantidad) {
+  return /^\d+(?:\.\d+)?\s*\/\s*[A-Z]+$/i.test(String(cantidad || "").replace(/\s/g, ""));
+}
+
+function esImportePdfValido(valor) {
+  return /^\$?\s*[\d,]+(?:\.\d{2,4})?$/.test(String(valor || "").trim());
+}
+
+async function extraerProductosPdfPorPosicion(pdf) {
+  const productos = [];
+
+  for (let numeroPagina = 1; numeroPagina <= pdf.numPages; numeroPagina++) {
+    const pagina = await pdf.getPage(numeroPagina);
+    const contenido = await pagina.getTextContent();
+    const renglones = agruparRenglonesPdf(contenido.items, 2.5);
+    const columnas = obtenerColumnasAlmacen(renglones);
+
+    if (!columnas) continue;
+
+    renglones.forEach(function (renglon) {
+      // Solo considera la tabla ubicada debajo del encabezado. La validacion de
+      // las tres columnas numericas descarta encabezados y pies de pagina.
+      if (renglon.y >= columnas.yEncabezado - 4) return;
+
+      const limites = columnas.limites;
+      const clave = textoColumnaPdf(renglon.items, -Infinity, limites[0]);
+      const descripcion = textoColumnaPdf(renglon.items, limites[0], limites[1]);
+      const cantidad = textoColumnaPdf(renglon.items, limites[1], limites[2]);
+      const precioNeto = textoColumnaPdf(renglon.items, limites[2], limites[3]);
+      const importe = textoColumnaPdf(renglon.items, limites[3], Infinity);
+
+      if (!clave || !descripcion || !esCantidadPdfValida(cantidad)) return;
+      if (!esImportePdfValido(precioNeto) || !esImportePdfValido(importe)) return;
+
+      productos.push({
+        CLAVE: clave,
+        DESCRIPCIÓN: descripcion,
+        "CANT.": cantidad.replace(/\s/g, ""),
+        "P. NETO": precioNeto,
+        IMPORTE: importe,
+      });
+    });
+  }
+
+  return productos;
 }
 
 function normalizarProductosPdfParaPedido(productos) {
