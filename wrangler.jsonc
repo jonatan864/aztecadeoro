@@ -1,11 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "aztecadeoro",
-<<<<<<< HEAD
-  "compatibility_date": "2026-06-17",
-=======
   "compatibility_date": "2026-06-26",
->>>>>>> ff7670d6c3a709708b08bef406254e404036a799
   "observability": {
     "enabled": true
   },
